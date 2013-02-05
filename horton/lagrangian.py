@@ -220,37 +220,39 @@ class lagrangian(object):
         
         result = []
     
-        self.sys.wfn.invalidate()
-        self.ham.invalidate()
-        self.sys.wfn.update_dm("alpha", self.toOneBody(self.lf,da)[0])
-        self.sys.wfn.update_dm("beta", self.toOneBody(self.lf,db)[0])
-        self.sys.wfn.update_dm("full", self.toOneBody(self.lf,(da+db))[0])
+#        self.sys.wfn.invalidate()
+#        self.ham.invalidate()
+#        self.sys.wfn.update_dm("alpha", self.toOneBody(self.lf,da)[0])
+#        self.sys.wfn.update_dm("beta", self.toOneBody(self.lf,db)[0])
+#        self.sys.wfn.update_dm("full", self.toOneBody(self.lf,(da+db))[0])
 #            self.sys.wfn.update_dm("spin", self.toOneBody(self.lf,(da-db))[0])
     
-        self.fock_alpha.reset()
-        self.fock_beta.reset()
+#        self.fock_alpha.reset()
+#        self.fock_beta.reset()
         
-        if self.ham.grid is None:
-            self.ham.compute_fock(self.fock_alpha, None)
-            self.ham.compute_fock(self.fock_beta, None) #print "HACKHACKHACK! THIS IS FOR HF!!!!!!"
-        else:
-            self.ham.compute_fock(self.fock_alpha, self.fock_beta) #print "HACK HACK HACK! THIS IS FOR DFT!!!!"
+#        if self.ham.grid is None:
+#            self.ham.compute_fock(self.fock_alpha, None)
+#            self.ham.compute_fock(self.fock_beta, None) #print "HACKHACKHACK! THIS IS FOR HF!!!!!!"
+#        else:
+#            self.ham.compute_fock(self.fock_alpha, self.fock_beta) #print "HACK HACK HACK! THIS IS FOR DFT!!!!"
+#        
+#        self.sys.wfn.invalidate()
+#        self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), toOneBody(self.lf,da)[0], toOneBody(self.lf,db)[0])
         
-        self.sys.wfn.invalidate()
-        self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), toOneBody(self.lf,da)[0], toOneBody(self.lf,db)[0])
+#        numpy_fock_alpha = toNumpy(self.fock_alpha)
+#        numpy_fock_beta = toNumpy(self.fock_beta)
         
-        numpy_fock_alpha = toNumpy(self.fock_alpha)
-        numpy_fock_beta = toNumpy(self.fock_beta)
-        
-        for spins in [[numpy_fock_alpha, da,ba,pa,mua,N], [numpy_fock_beta, db,bb,pb,mub,N2]]:
+#        for spins in [[numpy_fock_alpha, da,ba,pa,mua,N], [numpy_fock_beta, db,bb,pb,mub,N2]]:
+        for spins in [[da,ba,pa,mua,N], [db,bb,pb,mub,N2]]:
 #            dLdD = self.old_grad_fock(da,db)
             
-            [fock,D,B,P,Mu,n] = spins
-            dLdD = fock[0]
-#            dLdD = 0
-#            wrappedD = toOneBody(self.lf, da, db)
-#            dLdD = toNumpy(self.dVee.dD(wrappedD))
-#            dLdD += (self.T - self.V)
+            [D,B,P,Mu,n] = spins
+#            [fock,D,B,P,Mu,n] = spins
+#            dLdD = fock[0]
+            dLdD = 0
+            wrappedD = toOneBody(self.lf, da, db)
+            dLdD = toNumpy(self.dVee.dD(wrappedD))
+            dLdD += (self.T - self.V)
             
 #            assert (np.abs(fock - self.old_grad_fock(da, db)) < 1e-5).all(), fock-self.old_grad_fock(da, db)
             
@@ -557,6 +559,9 @@ class lagrangian(object):
     def lin_grad_wrap(self,x):
         self.full_offsets()
         args = self.vecToMat(x)
+        
+        fdan = np.abs(self.fdiff_gradient(*args) - self.grad(*args))
+        assert (fdan < 1e-6).all(), (fdan < 1e-6, np.where(fdan > 1e-6), fdan)
         
         return self.grad(*args)
     
