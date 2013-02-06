@@ -40,14 +40,14 @@ class HF_dVee(dVee):
 
         return result
 
-    def dD(self,D):
+    def dD(self, da, db, d_spin):
         J2_alpha = self.lf.create_one_body(self.nbasis)
         K2_alpha = self.lf.create_one_body(self.nbasis)
         J2_beta = self.lf.create_one_body(self.nbasis)
 
-        self.int4d.apply_direct(D[0], J2_alpha)
-        self.int4d.apply_exchange(D[0], K2_alpha)
-        self.int4d.apply_direct(D[1], J2_beta)
+        self.int4d.apply_direct(da, J2_alpha)
+        self.int4d.apply_exchange(d_spin, K2_alpha)
+        self.int4d.apply_direct(db, J2_beta)
 
         result = self.lf.create_one_body(self.nbasis) #TODO inefficient
         result._array = (J2_alpha._array + J2_beta._array - K2_alpha._array)

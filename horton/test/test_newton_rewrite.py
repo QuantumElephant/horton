@@ -129,7 +129,7 @@ def promol_guess(sys, basis):
         
         converge_scf_oda(ham)
         
-        orb_alpha.append(atom_sys.wfn.exp_alpha._coeffs) #Why is the sign wrong?
+        orb_alpha.append(atom_sys.wfn.exp_alpha._coeffs)
         orb_beta.append(atom_sys.wfn.exp_beta._coeffs)
         
         occ_alpha.append(atom_sys.wfn.exp_alpha.occupations)
@@ -231,6 +231,27 @@ def test_H2O_DM():
     
 #test_H2O_DM()
 
+def test_grad():
+    basis = 'sto-3g' #CHANGE1
+    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b = promol_guess(system, basis)
+    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b)
+
+    S = system.get_overlap()._array
+    
+    ham = Hamiltonian(system, [HartreeFock()])
+
+    lf, lg, nbasis, wfn = _lg_init(system, ham, N,N2,[pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub])
+    
+    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
+    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
+    
+    x0 = np.hstack([pro_da.ravel(), pro_db.ravel(), pro_ba.ravel(), pro_bb.ravel(), pa.ravel(), pb.ravel(), mua, mub]); lg.isUT = False
+
+    assert np.abs(lg.fdiff_hess_grad_grad(x0) - lg.lin_grad_wrap(x0)) < 1e-6
+    
 
 def test_H2O_New():
     solver = NewtonKrylov()
@@ -268,13 +289,13 @@ def test_H2O_New():
 
     lf, lg, nbasis, wfn = _lg_init(system, ham, N,N2,[pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub])
     
-    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S))
-    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S))
+    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
+    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
     
     ind = np.triu_indices(dm_a.shape[0])
     
-    x0 = np.hstack([pro_da.ravel(), pro_db.ravel(), pro_ba.ravel(), pro_bb.ravel(), pa.ravel(), pb.ravel(), mua, mub]); lg.isUT = False
-#    x0 = np.hstack([pro_da[ind], pro_db[ind], pro_ba[ind], pro_bb[ind], pa[ind], pb[ind], mua, mub]); lg.isUT = True
+#    x0 = np.hstack([pro_da.ravel(), pro_db.ravel(), pro_ba.ravel(), pro_bb.ravel(), pa.ravel(), pb.ravel(), mua, mub]); lg.isUT = False
+    x0 = np.hstack([pro_da[ind], pro_db[ind], pro_ba[ind], pro_bb[ind], pa[ind], pb[ind], mua, mub]); lg.isUT = True
 #    lg.test_UTconvert(x0)
 
     x_star = solver.solve(lg, x0)
