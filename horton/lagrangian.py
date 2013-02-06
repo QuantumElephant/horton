@@ -165,7 +165,7 @@ class lagrangian(object):
         
         result = []
         
-        for i in np.arange(10):        
+        for i in np.arange(x.size):        
             tmpFwd = cp.deepcopy(x)
             tmpBack = cp.deepcopy(x)
             
@@ -174,12 +174,9 @@ class lagrangian(object):
             
             print "evaluating gradient"
             
-            fd = (fn(tmpFwd) - fn(tmpBack)) / (np.float64(2)*h)
-            an = (anfn(tmpFwd) - anfn(tmpBack)) / (np.float64(2)*h)
-            fdan = np.abs(fd - an)
-            assert (fdan < 1e-6).all(), (fdan > 1e-6, np.where(fdan > 1e-6), fdan)
+            an = (anfn(tmpFwd) - anfn(tmpBack))/ (np.float64(2)*h)
             
-            result.append(fd)
+            result.append(an)
 
         result = np.vstack(result)
         return result
@@ -231,13 +228,13 @@ class lagrangian(object):
         self.fock_alpha.reset()
         self.fock_beta.reset()
         
-#        if self.ham.grid is None:
-#            self.ham.compute_fock(self.fock_alpha, self.fock_beta) #print "HACK HACK HACK! THIS IS FOR DFT!!!!"
+        if self.ham.grid is None:
+            self.ham.compute_fock(self.fock_alpha, self.fock_beta) #print "HACK HACK HACK! THIS IS FOR DFT!!!!"
 #
-##            self.ham.compute_fock(self.fock_alpha, None)
-##            self.ham.compute_fock(self.fock_beta, None) #print "HACKHACKHACK! THIS IS FOR HF!!!!!!"
-#        else:
-        self.ham.compute_fock(self.fock_alpha, self.fock_beta) #print "HACK HACK HACK! THIS IS FOR DFT!!!!"
+#            self.ham.compute_fock(self.fock_alpha, None)
+#            self.ham.compute_fock(self.fock_beta, None) #print "HACKHACKHACK! THIS IS FOR HF!!!!!!"
+        else:
+            self.ham.compute_fock(self.fock_alpha, self.fock_beta) #print "HACK HACK HACK! THIS IS FOR DFT!!!!"
         
         self.sys.wfn.invalidate()
         self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), toOneBody(self.lf,da)[0], toOneBody(self.lf,db)[0])
@@ -301,13 +298,13 @@ class lagrangian(object):
         """Receives matrices from vecToMat
         """
         sym_args = args          
-#        sym_args = self.symmetrize(*args)
-#        self.check_sym(*sym_args)      
+        sym_args = self.symmetrize(*args)
+        self.check_sym(*sym_args)      
         
         grad = self.calc_grad(*sym_args)
             
-#        self.check_sym(*grad)
-#        grad[0:2] = self.symmetrize(*grad[0:2]) #average roundoff error in dLdD
+        self.check_sym(*grad)
+        grad[0:2] = self.symmetrize(*grad[0:2]) #average roundoff error in dLdD
         
         result = self.matToVec(*grad)
             
@@ -564,16 +561,21 @@ class lagrangian(object):
         self.full_offsets()
         args = self.vecToMat(x)
         
-        fdan = np.abs(self.fdiff_gradient(*args) - self.grad(*args))
-        assert (fdan < 1e-6).all(), (fdan < 1e-6, np.where(fdan > 1e-6), fdan)
+#        fdan = np.abs(self.fdiff_gradient(*args) - self.grad(*args))
+#        assert (fdan < 1e-6).all(), (fdan < 1e-6, np.where(fdan > 1e-6), fdan)
         
         return self.grad(*args)
     
-    def sym_lin_grad_wrap(self,x):
+    def sym_lin_grad_wrap(self,x): 
         self.tri_offsets()
         args = self.UTvecToMat(x)
         
-        fdan = np.abs(self.fdiff_hess_grad_grad(x) - self.sym_gradient_spin_frac(*args))
-        assert (fdan < 1e-6).all(), (fdan < 1e-6, np.where(fdan > 1e-6), fdan)
+        full_fd = self.fdiff_gradient(*args)
+        fd = self.vecToMat(full_fd)
+        self.check_sym(*fd)
+        fd = self.UTmatToVec(*fd)
+        
+        fdan = np.abs(fd - self.sym_gradient_spin_frac(*args))
+        assert (fdan < 1e-6).all(), (fdan > 1e-6, np.where(fdan > 1e-6), fdan)
         
         return self.sym_gradient_spin_frac(*args)
