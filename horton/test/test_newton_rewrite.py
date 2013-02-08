@@ -256,8 +256,8 @@ def test_grad():
 def test_H2O_New():
     solver = NewtonKrylov()
 #    
-    basis = 'sto-3g' #CHANGE1
-#    basis = '3-21G'
+#    basis = 'sto-3g' #CHANGE1
+    basis = '3-21G'
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
@@ -294,18 +294,29 @@ def test_H2O_New():
     
     ind = np.triu_indices(dm_a.shape[0])
     
-#    x0 = np.hstack([pro_da.ravel(), pro_db.ravel(), pro_ba.ravel(), pro_bb.ravel(), pa.ravel(), pb.ravel(), mua, mub]); lg.isUT = False
-    x0 = np.hstack([pro_da[ind], pro_db[ind], pro_ba[ind], pro_bb[ind], pa[ind], pb[ind], mua, mub]); lg.isUT = True
+    
+    x0 = np.hstack([pro_da.ravel(), pro_db.ravel(), pro_ba.ravel(), pro_bb.ravel(), pa.ravel(), pb.ravel(), mua, mub]); lg.isUT = False; lg.full_offsets()
+#    pro_da -= np.diag(np.diag(pro_da))*0.5; pro_db -= np.diag(np.diag(pro_db))*0.5; pro_ba -= np.diag(np.diag(pro_ba))*0.5; pro_bb -= np.diag(np.diag(pro_bb))*0.5; pa -= np.diag(np.diag(pa))*0.5; pb -= np.diag(np.diag(pb))*0.5; 
+#    x0 = 2*np.hstack([pro_da[ind], pro_db[ind], pro_ba[ind], pro_bb[ind], pa[ind], pb[ind], 0.5*mua, 0.5*mub]); lg.isUT = True; lg.tri_offsets()
+#    x0 = np.hstack([pro_da[ind], pro_db[ind], pro_ba[ind], pro_bb[ind], pa[ind], pb[ind], mua, mub]); lg.isUT = True; lg.tri_offsets()
 #    lg.test_UTconvert(x0)
 
+#    hess = lg.fdiff_hess_grad_x(x0)
+#    lg.check_sym(hess)
+#    assert False
+
+#    print "Evaluate initial E"
+#    lg.callback_system(x0, None)
     x_star = solver.solve(lg, x0)
+#    lg.wrap_callback_spin(x_star)
     
     if lg.isUT:
         print lg.UTvecToMat(x_star)
-        np.savetxt("jacobianFinished", lg.fdiff_hess_slow(lg.sym_gradient_spin_frac, *lg.UTvecToMat(x_star)))
+#        np.savetxt("jacobianFinished", lg.fdiff_hess_grad_x(x_star))
     else:
         print lg.vecToMat(x_star)
-        np.savetxt("jacobianFinished", lg.fdiff_hess_slow(lg.gradient_spin_frac, *lg.vecToMat(x_star)))
+        np.savez("full_xstar", lg.vecToMat(x_star))
+#        np.savetxt("jacobianFinished", lg.fdiff_hess_grad_x(x_star))
     
     system._wfn = None
     system.init_wfn(restricted=False)
@@ -313,7 +324,7 @@ def test_H2O_New():
     guess_hamiltonian_core(system)
     
     converged = converge_scf_oda(ham)
-#    print ham.compute_energy() - system.compute_nucnuc()
+    print ham.compute_energy() - system.compute_nucnuc()
 
     print "energy assertion deferred"
 #    assert (abs(lg.wrap_callback_spin(x_star) - ham.compute_energy()) < 1e-4).all()
@@ -322,7 +333,7 @@ def test_H2O_New():
     
 #    lg.occ_hist_a = np.vstack(lg.occ_hist_a)
 #    lg.occ_hist_b = np.vstack(lg.occ_hist_b)
-    lg.e_hist_a = np.vstack(lg.e_hist_a)
+    lg.e_hist_a = np.vstack(lg.e_hist)
 #    lg.e_hist_b = np.vstack(lg.e_hist_b)
     iters = np.arange(lg.nIter)
 #    fig = plt.figure()
@@ -331,7 +342,7 @@ def test_H2O_New():
     
 #    for i in np.arange(lg.occ_hist_a.shape[1]):
 #        ax1.plot(iters,lg.occ_hist_a[:,i], 'r--', iters, lg.occ_hist_b[:,i], 'b--') 
-    plt.plot(iters,np.log10(np.abs(lg.e_hist_a - -74.4141088197)), 'r--')
+    plt.plot(iters,np.log10(np.abs(lg.e_hist - lg.e_hist[-1])), 'r--')
     
     plt.show()
     
@@ -347,10 +358,12 @@ def test_Horton_H2O():
 #    rtf = ExpRTransform(1e-3, 10.0, 100)
 #    grid = BeckeMolGrid(system, (rtf, int1d, 110), random_rotate=False)
 
-    grid = BeckeMolGrid(system, random_rotate=False)
+#    grid = BeckeMolGrid(system, random_rotate=False)
+#    
+#    libxc_term = LibXCLDATerm('x')
+#    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
     
-    libxc_term = LibXCLDATerm('x')
-    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+    ham = Hamiltonian(system, [HartreeFock()])
     
     converged = converge_scf_oda(ham, max_iter=5000)
     

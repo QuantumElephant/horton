@@ -4,6 +4,7 @@ import scipy.linalg.matfuncs as mat
 import horton
 import time
 import pylab
+import scipy.optimize as op
 
 #TODO: profile to figure out a quick way of evaluating this function.
 class lagrangian(object):
@@ -53,6 +54,7 @@ class lagrangian(object):
             
             
         #debugging
+        self.e_hist = []
         self.occ_hist_a = []
         self.e_hist_a = []
         self.occ_hist_b = []
@@ -155,17 +157,30 @@ class lagrangian(object):
         return result
     
     def fdiff_hess_grad_x(self, x):
-        h = 1e-5
+        hOrig = 1e-5
         fn = self.fdiff_hess_grad_grad
         
         if self.isUT:
             anfn = self.sym_lin_grad_wrap
+#            UTsize = self.offsets[1] #hack! assumes same size of basis for all lagrange multipliers at front of args
+#            UTdiags = self.gen_UT_index(self.shapes[0])
+            
         else:
             anfn = self.lin_grad_wrap
+            h = hOrig
+        h = hOrig
         
         result = []
-        
-        for i in np.arange(x.size):        
+#        result2 = []
+
+        for i in np.arange(x.size):
+#            if self.isUT:
+#                matInd = i%UTsize
+#                if matInd not in UTdiags:
+#                    h = hOrig/2.
+#                else:
+#                    h = hOrig
+             
             tmpFwd = cp.deepcopy(x)
             tmpBack = cp.deepcopy(x)
             
@@ -174,11 +189,38 @@ class lagrangian(object):
             
             print "evaluating gradient"
             
+#            fdan = np.abs(fn(tmpFwd) - anfn(tmpFwd))
+#            assert (fdan < 1e-6).all(), (fdan > 1e-6, np.where(fdan > 1e-6), fdan)
+
+#            fdan = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
+#            assert fdan < 1e-4, fdan 
+            
+#            fd = (fn(tmpFwd) - fn(tmpBack))/(np.float64(2)*h)
             an = (anfn(tmpFwd) - anfn(tmpBack))/ (np.float64(2)*h)
             
             result.append(an)
+#            result2.append(fd)
 
         result = np.vstack(result)
+#        result2 = np.vstack(result2)
+        
+#        self.plot_mat((result - result2) > 1e-6)
+        
+        self.check_sym(result)
+        return result
+    
+    def gen_UT_index(self, ndim):
+        result = [0]
+        last = 1
+        for i in np.arange(ndim):
+            result.append(result[-1] + last)
+            last += 1
+            
+        result = result[::-1]
+        result = np.array(result)
+        result = np.abs(result - result[0]) 
+        result = result[:-1]
+        
         return result
         
     def fdiff_hess_grad_grad(self, x):
@@ -339,6 +381,10 @@ class lagrangian(object):
         
         return dLdD
     
+    def lagrange_x(self, x):
+        args = self.UTvecToMat(x)
+        return self.lagrangian_spin_frac(*args)
+    
     def lagrangian_spin_frac(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub):
         S = self.S
         N = self.N
@@ -363,6 +409,11 @@ class lagrangian(object):
         return result
     
     def energy_spin(self, Da, Db):
+#        if self.isUT:
+#            Da -= 0.5*np.diag(np.diag(Da))
+#            Db -= 0.5*np.diag(np.diag(Db))
+        
+        
         if self.sys is None or self.ham is None:
             result = self.old_energy_spin(Da, Db)
         else:
@@ -461,11 +512,15 @@ class lagrangian(object):
 
             self.logNextIter = True
             self.t1 = time.time()
+        
+        if self.isUT:
+            D = self.UTvecToMat(x)[:2]
+        else:
+            D = self.vecToMat(x)[:2]
             
-        self.e_hist_a.append(self.ham.compute_energy())
+        self.e_hist.append(self.energy_spin(*D))
             
-        print "Energy is " + str(self.e_hist_a[-1])
-           
+        print "Energy is " + str(self.e_hist[-1])
             
         self.nIter+=1
         
@@ -504,7 +559,8 @@ class lagrangian(object):
                 continue
             
             shortDim = np.min(i.shape)
-            assert (np.abs(i[:,:shortDim] - i.T[:shortDim,:]) < 1e-8).all(), self.plot_mat(np.abs(i[:,:shortDim] - i.T[:shortDim,:]) > 1e-8)
+            symerror = np.abs(i[:,:shortDim] - i.T[:shortDim,:]) 
+            assert (symerror < 1e-8).all(), (np.vstack(np.where(symerror > 1e-8)).T, symerror, self.plot_mat(symerror > 1e-8))
     
     def plot_mat(self, mat):
         pylab.matshow(mat)
@@ -529,10 +585,16 @@ class lagrangian(object):
         self.tri_offsets() ##TESTING
         args = []
         for i in np.arange(len(self.offsets)-1):
+            
+            if self.shapes[i] == 1: #try to remove me
+                args.append(x[self.offsets[i]:self.offsets[i+1]])
+                continue
+            
             ut = np.zeros([self.shapes[i], self.shapes[i]])
             ind = np.triu_indices_from(ut)
             ut[ind] = x[self.offsets[i]:self.offsets[i+1]]
-            temp = ut + np.triu(ut, 1).T
+#            temp = ut + np.triu(ut, 1).T
+            temp = 0.5*(ut + ut.T)
             args.append(temp)
         self.check_sym(*args)
         return args
@@ -547,8 +609,10 @@ class lagrangian(object):
     
     def tri_offsets(self):
         self.offsets = [0]
-        for key,i in enumerate(self.matrix_args):
-            self.offsets.append(np.triu_indices(self.shapes[key])[0].size)
+        for i in self.matrix_args:
+#            self.offsets.append(np.triu_indices(self.shapes[key])[0].size)
+            n = i.shape[0]
+            self.offsets.append(int((n + 1)*n/2.))
         self.offsets = np.cumsum(self.offsets)
         
     def full_offsets(self):
@@ -556,26 +620,65 @@ class lagrangian(object):
         for i in self.matrix_args:
             self.offsets.append(i.size)
         self.offsets = np.cumsum(self.offsets)
-    
-    def lin_grad_wrap(self,x):
-        self.full_offsets()
-        args = self.vecToMat(x)
         
-#        fdan = np.abs(self.fdiff_gradient(*args) - self.grad(*args))
-#        assert (fdan < 1e-6).all(), (fdan < 1e-6, np.where(fdan > 1e-6), fdan)
+    def check_fd(self, an, *args):
+        fdan = np.abs(self.fdiff_gradient(*args) - an)
+        assert (fdan < 1e-6).all(), (fdan < 1e-6, np.where(fdan > 1e-6), fdan)
         
-        return self.grad(*args)
-    
-    def sym_lin_grad_wrap(self,x): 
-        self.tri_offsets()
-        args = self.UTvecToMat(x)
-        
+    def check_UT_fd(self, an, *args):
         full_fd = self.fdiff_gradient(*args)
         fd = self.vecToMat(full_fd)
         self.check_sym(*fd)
         fd = self.UTmatToVec(*fd)
         
-        fdan = np.abs(fd - self.sym_gradient_spin_frac(*args))
-        assert (fdan < 1e-6).all(), (fdan > 1e-6, np.where(fdan > 1e-6), fdan)
+#        print np.linalg.norm(fd-an)
         
-        return self.sym_gradient_spin_frac(*args)
+        fdan = np.abs(fd - an)
+        assert (fdan < 1e-6).all(), (fdan > 1e-6, np.where(fdan > 1e-6), fdan)
+    
+    def lin_grad_wrap(self,x):
+        self.full_offsets()
+        args = self.vecToMat(x)
+        
+#        print args
+#        print "\n\n"
+#        time.sleep(5)
+        
+        sym_args = self.symmetrize(*args)
+        self.check_sym(*sym_args)      
+        
+        grad = self.calc_grad(*sym_args)
+            
+        self.check_sym(*grad)
+#        grad[0:2] = self.symmetrize(*grad[0:2]) #average roundoff error in dLdD
+        
+        result = self.matToVec(*grad)
+        
+#        self.check_fd(result, *args)
+
+        
+        return result
+    
+    def sym_lin_grad_wrap(self,x): 
+        self.tri_offsets()
+        args = self.UTvecToMat(x)
+        
+#        print args
+#        print "\n\n"
+#        time.sleep(5)
+        
+#        self.check_sym(*args)
+        
+        grad = self.calc_grad(*args)
+            
+        self.check_sym(*grad)
+#        grad = self.symmetrize(*grad)
+        
+        result = self.UTmatToVec(*grad)
+
+        
+#        self.check_UT_fd(result, *args)
+        
+
+        
+        return result
