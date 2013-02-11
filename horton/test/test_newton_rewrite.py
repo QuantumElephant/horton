@@ -279,13 +279,13 @@ def test_H2O_New():
 #    rtf = ExpRTransform(1e-3, 10.0, 100)
 #    grid = BeckeMolGrid(system, (rtf, int1d, 110), random_rotate=False)
     
-#    grid = BeckeMolGrid(system, random_rotate=False)
-##    
-#    libxc_term = LibXCLDATerm('x')
-#    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+    grid = BeckeMolGrid(system, random_rotate=False)
+    
+    libxc_term = LibXCLDATerm('x')
+    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
 
 #HF
-    ham = Hamiltonian(system, [HartreeFock()])
+#    ham = Hamiltonian(system, [HartreeFock()])
 
     lf, lg, nbasis, wfn = _lg_init(system, ham, N,N2,[pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub])
     
@@ -294,10 +294,12 @@ def test_H2O_New():
     
     ind = np.triu_indices(dm_a.shape[0])
     
+#    a = np.load("full_xstar.npz")
+#    [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua,mub] = a["arr_0"]
     
     x0 = np.hstack([pro_da.ravel(), pro_db.ravel(), pro_ba.ravel(), pro_bb.ravel(), pa.ravel(), pb.ravel(), mua, mub]); lg.isUT = False; lg.full_offsets()
 #    pro_da -= np.diag(np.diag(pro_da))*0.5; pro_db -= np.diag(np.diag(pro_db))*0.5; pro_ba -= np.diag(np.diag(pro_ba))*0.5; pro_bb -= np.diag(np.diag(pro_bb))*0.5; pa -= np.diag(np.diag(pa))*0.5; pb -= np.diag(np.diag(pb))*0.5; 
-#    x0 = 2*np.hstack([pro_da[ind], pro_db[ind], pro_ba[ind], pro_bb[ind], pa[ind], pb[ind], 0.5*mua, 0.5*mub]); lg.isUT = True; lg.tri_offsets()
+#    x0 = 2*np.hstack([pro_da[ind], pro_db[ind], pro_ba[ind], pro_bb[ind], pa[ind], pb[ind], 0.5*mua.squeeze(), 0.5*mub.squeeze()]); lg.isUT = True; lg.tri_offsets()
 #    x0 = np.hstack([pro_da[ind], pro_db[ind], pro_ba[ind], pro_bb[ind], pa[ind], pb[ind], mua, mub]); lg.isUT = True; lg.tri_offsets()
 #    lg.test_UTconvert(x0)
 
@@ -312,10 +314,11 @@ def test_H2O_New():
     
     if lg.isUT:
         print lg.UTvecToMat(x_star)
+#        np.savez("UT_xstar", lg.vecToMat(x_star))
 #        np.savetxt("jacobianFinished", lg.fdiff_hess_grad_x(x_star))
     else:
         print lg.vecToMat(x_star)
-        np.savez("full_xstar", lg.vecToMat(x_star))
+#        np.savez("full_xstar", lg.vecToMat(x_star))
 #        np.savetxt("jacobianFinished", lg.fdiff_hess_grad_x(x_star))
     
     system._wfn = None

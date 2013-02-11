@@ -32,9 +32,9 @@ class NewtonKrylov(object):
 #        x_star= op.newton_krylov(lg.lin_grad_wrap, x0, verbose=True, method='bicgstab', f_tol = 1e-8, callback = lg.callback_system) #CHANGE1
 #        x_star= op.newton_krylov(lg.lin_grad_wrap, x0, verbose=True, method='lgmres', f_tol = 1e-8, callback = lg.callback_system, inner_M=jac)
         if lg.isUT: 
-            x_star= op.newton_krylov(lg.sym_lin_grad_wrap, x0, verbose=True, method='lgmres', f_tol = 1e-8, callback = lg.callback_system)
+            x_star= op.newton_krylov(lg.sym_lin_grad_wrap, x0, verbose=True, method='lgmres', f_tol = 6e-6, callback = lg.callback_system)
         else:
-            x_star= op.newton_krylov(lg.lin_grad_wrap, x0, verbose=True, method='lgmres', f_tol = 1e-8, callback = lg.callback_system)
+            x_star= op.newton_krylov(lg.lin_grad_wrap, x0, verbose=True, method='lgmres', f_tol = 6e-6, callback = lg.callback_system)
         
         
 #        x_star= op.broyden2(lg.lin_grad_wrap, x0, verbose=True, f_tol = 1e-8, callback = lg.callback_system) #CHANGE1
