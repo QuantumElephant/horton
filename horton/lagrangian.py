@@ -8,22 +8,12 @@ import scipy.optimize as op
 
 #TODO: profile to figure out a quick way of evaluating this function.
 class lagrangian(object):
-    def __init__(self, lf, T, V, S, N, N2, dVee, W, matrix_args, sys = None, ham = None):
-        [T, V, S] = self.toNumpy(T,V,S)
-        
+    def __init__(self, lf, S, N, N2, matrix_args, sys, ham):
         self.lf = lf
-        self.T = T
-        self.V = V #TODO: check to see if potentials are spin restricted
-        self.S = S
+        self.S = self.toNumpy(S)
         self.N = N
         self.N2 = N2
-        self.W = W
-        self.fn = self.lagrangian_spin_frac
-        self.grad = self.gradient_spin_frac
-#        self.grad = self.fdiff_gradient
 
-        self.dVee = dVee
-        
         self.shapes = []
         
         self.matrix_args = matrix_args
@@ -31,27 +21,13 @@ class lagrangian(object):
         self.offsets = [0]
         
         for i in matrix_args:
-#            self.offsets.append(i.size)
             self.shapes.append(i.shape[0])
-##            self.offsets.append(np.triu_indices(self.shapes[-1])[0].size)
-        
-#        self.offsets = np.cumsum(self.offsets)
         
         self.sys = sys
         self.ham = ham
         
         self.fock_alpha = self.lf.create_one_body(self.shapes[0])
         self.fock_beta = self.lf.create_one_body(self.shapes[1])
-#        
-#        self.sys.wfn.update_dm("alpha", self.toOneBody(self.lf,matrix_args[0])[0])
-#        self.sys.wfn.update_dm("beta", self.toOneBody(self.lf,matrix_args[1])[0])
-#        
-#        if self.ham.grid is None:
-#            self.ham.compute_fock(self.fock_alpha, None)
-#            self.ham.compute_fock(self.fock_beta, None) #print "HACKHACKHACK! THIS IS FOR HF!!!!!!"
-#        else:
-#            self.ham.compute_fock(self.fock_alpha, self.fock_beta) #print "HACK HACK HACK! THIS IS FOR DFT!!!!"
-            
             
         #debugging
         self.e_hist = []
@@ -62,14 +38,16 @@ class lagrangian(object):
         self.nIter = 0
         self.logNextIter = False
         
-    def toOneBody(self, lf, *args):
+    def toOneBody(self, *args):
         result = []
-        assert isinstance(lf, horton.LinalgFactory)
         for i in args:
             assert isinstance(i,np.ndarray)
-            temp = lf.create_one_body(i.shape[0])
+            temp = self.lf.create_one_body(i.shape[0])
             temp._array = i
             result.append(temp)
+            
+        if len(result) == 1:
+            return result[0]
         return result
     
     def toNumpy(self, *args):
@@ -77,11 +55,14 @@ class lagrangian(object):
         for i in args:
             assert isinstance(i, horton.DenseOneBody)
             result.append(i._array)
+         
+        if len(result) == 1:
+            return result[0]   
         return result
     
     def fdiff_gradient(self, *args):
         h = 1e-5
-        fn = self.fn
+        fn = self.lagrangian_spin_frac
         
         result = []
     
@@ -106,81 +87,18 @@ class lagrangian(object):
         
         return result
     
-    def fdiff_hess_slow(self, fn, *args):
-        h = 1e-5
-        
-        result = []
-        
-        for key, i in enumerate(args):
-            it = np.nditer(i, flags=["multi_index"])
-            while not it.finished:
-#                dim2_index = np.unravel_index(it.multi_index[0], i.shape)
-                
-                tmpFwd = list(cp.deepcopy(args))
-                tmpBack = list(cp.deepcopy(args))
-                
-                tmpFwd[key][it.multi_index] += h                
-                tmpBack[key][it.multi_index] -= h
-
-                print "evaluating gradient"
-                result.append((fn(*tmpFwd) - fn(*tmpBack)) / (np.float64(2)*h))
-
-                it.iternext()
-                
-        result = np.vstack(result)
-        return result
-    
-    def fdiff_hess_slow_x(self, fn, x):
-        h = 1e-5
-        
-        result = []
-        
-        if self.isUT:
-            reshapeFn = self.UTvecToMat
-        else:
-            reshapeFn = self.vecToMat
-        
-        for i in np.arange(x.size):        
-            tmpFwd = cp.deepcopy(x)
-            tmpBack = cp.deepcopy(x)
-            
-            tmpFwd[i] += h                
-            tmpBack[i] -= h
-            
-            tmpFwdMat = reshapeFn(tmpFwd)
-            tmpBackMat = reshapeFn(tmpBack)
-
-            print "evaluating gradient"
-            result.append((fn(*tmpFwdMat) - fn(*tmpBackMat)) / (np.float64(2)*h))
-
-        result = np.vstack(result)
-        return result
-    
     def fdiff_hess_grad_x(self, x):
-        hOrig = 1e-5
+        h = 1e-5
         fn = self.fdiff_hess_grad_grad
         
         if self.isUT:
             anfn = self.sym_lin_grad_wrap
-#            UTsize = self.offsets[1] #hack! assumes same size of basis for all lagrange multipliers at front of args
-#            UTdiags = self.gen_UT_index(self.shapes[0])
-            
         else:
             anfn = self.lin_grad_wrap
-            h = hOrig
-        h = hOrig
         
         result = []
-#        result2 = []
 
         for i in np.arange(x.size):
-#            if self.isUT:
-#                matInd = i%UTsize
-#                if matInd not in UTdiags:
-#                    h = hOrig/2.
-#                else:
-#                    h = hOrig
-             
             tmpFwd = cp.deepcopy(x)
             tmpBack = cp.deepcopy(x)
             
@@ -189,40 +107,16 @@ class lagrangian(object):
             
             print "evaluating gradient"
             
-#            fdan = np.abs(fn(tmpFwd) - anfn(tmpFwd))
-#            assert (fdan < 1e-6).all(), (fdan > 1e-6, np.where(fdan > 1e-6), fdan)
-
 #            fdan = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
 #            assert fdan < 1e-4, fdan 
             
-#            fd = (fn(tmpFwd) - fn(tmpBack))/(np.float64(2)*h)
             an = (anfn(tmpFwd) - anfn(tmpBack))/ (np.float64(2)*h)
-            
             result.append(an)
-#            result2.append(fd)
 
         result = np.vstack(result)
-#        result2 = np.vstack(result2)
-        
-#        self.plot_mat((result - result2) > 1e-6)
-        
         self.check_sym(result)
         return result
     
-    def gen_UT_index(self, ndim):
-        result = [0]
-        last = 1
-        for i in np.arange(ndim):
-            result.append(result[-1] + last)
-            last += 1
-            
-        result = result[::-1]
-        result = np.array(result)
-        result = np.abs(result - result[0]) 
-        result = result[:-1]
-        
-        return result
-        
     def fdiff_hess_grad_grad(self, x):
         h = 1e-5
         fn = self.lagrangian_spin_frac
@@ -251,54 +145,33 @@ class lagrangian(object):
     
     def calc_grad(self, *args):
         [da, db, ba, bb, pa, pb, mua, mub] = args
-#        offsets = self.offsets
         S = self.S
         N = self.N
         N2 = self.N2
         toNumpy = self.toNumpy
-        toOneBody = self.toOneBody
         
         result = []
     
         self.sys.wfn.invalidate()
         self.ham.invalidate()
-        self.sys.wfn.update_dm("alpha", self.toOneBody(self.lf,da)[0])
-        self.sys.wfn.update_dm("beta", self.toOneBody(self.lf,db)[0])
-        self.sys.wfn.update_dm("full", self.toOneBody(self.lf,(da+db))[0])
-#            self.sys.wfn.update_dm("spin", self.toOneBody(self.lf,(da-db))[0])
+        self.sys.wfn.update_dm("alpha", self.toOneBody(da))
+        self.sys.wfn.update_dm("beta", self.toOneBody(db))
+        self.sys.wfn.update_dm("full", self.toOneBody(da+db))
     
         self.fock_alpha.reset()
         self.fock_beta.reset()
         
-        if self.ham.grid is None:
-            self.ham.compute_fock(self.fock_alpha, self.fock_beta) #print "HACK HACK HACK! THIS IS FOR DFT!!!!"
-#
-#            self.ham.compute_fock(self.fock_alpha, None)
-#            self.ham.compute_fock(self.fock_beta, None) #print "HACKHACKHACK! THIS IS FOR HF!!!!!!"
-        else:
-            self.ham.compute_fock(self.fock_alpha, self.fock_beta) #print "HACK HACK HACK! THIS IS FOR DFT!!!!"
+        self.ham.compute_fock(self.fock_alpha, self.fock_beta)
         
         self.sys.wfn.invalidate()
-        self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), toOneBody(self.lf,da)[0], toOneBody(self.lf,db)[0])
+        self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), self.toOneBody(da), self.toOneBody(db))
         
         numpy_fock_alpha = toNumpy(self.fock_alpha)
         numpy_fock_beta = toNumpy(self.fock_beta)
 #        
         for spins in [[numpy_fock_alpha, da,ba,pa,mua,N], [numpy_fock_beta, db,bb,pb,mub,N2]]:
-#        for spins in [[da,ba,pa,mua,N], [db,bb,pb,mub,N2]]:
-#            dLdD = self.old_grad_fock(da,db)
-            
-#            [D,B,P,Mu,n] = spins
-#            dLdD = 0
             [fock,D,B,P,Mu,n] = spins
-            dLdD = fock[0]
-            
-#            wrappedD = toOneBody(self.lf, da, db, D)
-#            dLdD = toNumpy(self.dVee.dD(*wrappedD))
-#            dLdD += (self.T - self.V)
-            
-#            assert (np.abs(fock - self.old_grad_fock(da, db)) < 1e-5).all(), fock-self.old_grad_fock(da, db)
-            
+            dLdD = fock
             
             sbs = np.dot(np.dot(S,B),S)
             sdsbs = np.dot(np.dot(S,D),sbs)
@@ -336,51 +209,6 @@ class lagrangian(object):
         c = [j for i in zip(a,b) for j in i]    
         return c  
     
-    def gradient_spin_frac(self, *args):
-        """Receives matrices from vecToMat
-        """
-        sym_args = args          
-        sym_args = self.symmetrize(*args)
-        self.check_sym(*sym_args)      
-        
-        grad = self.calc_grad(*sym_args)
-            
-        self.check_sym(*grad)
-        grad[0:2] = self.symmetrize(*grad[0:2]) #average roundoff error in dLdD
-        
-        result = self.matToVec(*grad)
-            
-#        self.check_UT(grad, *args)
-        return result
-    
-    
-    def sym_gradient_spin_frac(self, *args):
-        """Receives full matrices from UTVecToMat
-        """
-        self.check_sym(*args)
-        
-        grad = self.calc_grad(*args)
-            
-        self.check_sym(*grad)
-#        grad = self.symmetrize(*grad)
-        
-        result = self.UTmatToVec(*grad)
-        
-        return result
-    
-    def old_grad_fock(self, da, db):
-        T = self.T
-        V = self.V
-        dVee = self.dVee
-        toNumpy = self.toNumpy
-        toOneBody = self.toOneBody
-        
-        wrappedD = toOneBody(self.lf, da, db)
-        dLdD = toNumpy(dVee.dD(wrappedD))
-        dLdD += (T - V)
-        
-        return dLdD
-    
     def lagrange_x(self, x):
         args = self.UTvecToMat(x)
         return self.lagrangian_spin_frac(*args)
@@ -409,70 +237,26 @@ class lagrangian(object):
         return result
     
     def energy_spin(self, Da, Db):
-#        if self.isUT:
-#            Da -= 0.5*np.diag(np.diag(Da))
-#            Db -= 0.5*np.diag(np.diag(Db))
-        
-        
-        if self.sys is None or self.ham is None:
-            result = self.old_energy_spin(Da, Db)
-        else:
-            self.sys.wfn.invalidate()
-            self.ham.invalidate()
-            self.sys.wfn.update_dm("alpha", self.toOneBody(self.lf,Da)[0])
-            self.sys.wfn.update_dm("beta", self.toOneBody(self.lf,Db)[0])
-            self.sys.wfn.update_dm("full", self.toOneBody(self.lf,(Da+Db))[0])
-#            self.sys.wfn.update_dm("spin", self.toOneBody(self.lf,(Da-Db))[0])
-            result = self.ham.compute_energy()
-#            print "The energy is " + str(result)
-#            self.check_wfn_energy(Da,Db,result)        
+        self.sys.wfn.invalidate()
+        self.ham.invalidate()
+        self.sys.wfn.update_dm("alpha", self.toOneBody(Da))
+        self.sys.wfn.update_dm("beta", self.toOneBody(Db))
+        self.sys.wfn.update_dm("full", self.toOneBody(Da+Db))
+#       self.sys.wfn.update_dm("spin", self.toOneBody(Da-Db))
+        result = self.ham.compute_energy()
+#       print "The energy is " + str(result)
         
         return result
     
-    def old_energy_spin(self,Da,Db):
-        T = self.T
-        V = self.V
-        dVee = self.dVee
-        toNumpy = self.toNumpy
-        toOneBody = self.toOneBody
+    def test_occ(self, D):
+        L = 0.5*np.ones_like(D)
+        idx = np.diag_indices_from(L)
+        L[idx] = 1
         
-        wrappedD = toOneBody(self.lf, Da, Db)
-        result = dVee.Vee(wrappedD)
-        result += np.trace(np.dot((T-V),Da))
-        result += np.trace(np.dot((T-V),Db))
-        return result
-    
-    def check_wfn_energy(self, Da, Db, trial):
-        result = self.old_energy_spin(Da, Db)
+        P = np.dot(D.ravel(), self.S.ravel())
+        Na = np.dot(P.ravel(), L.ravel())
         
-#        print "Horton", trial
-#        print "Own", result
-#        print np.abs(result - trial)
-        
-        assert np.abs(trial - result) < 1e-4, np.abs(trial - result)
-
-    def check_occ(self,x0):
-        S = self.S
-        result = np.linalg.eigh(np.dot(np.dot(mat.sqrtm(S),x0[0]),mat.sqrtm(S)))[0]
-        if len(x0)==1:
-            return result
-        result2 = np.linalg.eigh(np.dot(np.dot(mat.sqrtm(S),x0[1]),mat.sqrtm(S)))[0]
-        return result,result2
-
-    def wrap_callback_spin(self,x,f=None):
-        energy_spin = self.energy_spin
-        offsets = self.offsets
-        check_occ = self.check_occ
-        S = self.S
-        
-        Da = x[offsets[0]:offsets[1]].reshape([self.shapes[0],self.shapes[0]])
-        Db = x[offsets[1]:offsets[2]].reshape([self.shapes[1], self.shapes[1]])
-        
-        print("energy", energy_spin(Da,Db))
-        print("normalization",np.trace(np.dot(Da,S)),np.trace(np.dot(Db,S)), check_occ([Da,Db]))
-        print("\n")
-        
-        return energy_spin(Da,Db)
+        return Na
     
     def callback_system(self, x, dummy2):
 #        self.occ_hist_a.append(self.sys.wfn.exp_alpha.occupations)
@@ -486,10 +270,7 @@ class lagrangian(object):
 #            print "e beta:", self.e_hist_b[-1]
 #            
         if self.logNextIter: #THIS GOES SECOND
-#            if self.isUT:
-#                hess = self.fdiff_hess_slow_x(self.sym_gradient_spin_frac, x)
-#            else:
-#                hess = self.fdiff_hess_slow_x(self.gradient_spin_frac,x)
+#            hess = self.fdiff_hess_grad_x(x)
 #            np.savetxt("jacobian"+str(self.nIter), hess)
 #            print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
             
@@ -498,16 +279,10 @@ class lagrangian(object):
             print "Iter {:d} took {:0.3e} s".format(self.nIter, self.t2-self.t1)
 
         if self.nIter==0 or self.nIter%1500==0 : #THIS GOES FIRST
-            if self.isUT:
-#                hess = self.fdiff_hess_slow_x(self.sym_gradient_spin_frac, x)
-                hess = self.fdiff_hess_grad_x(x)
-            else:
-#                hess = self.fdiff_hess_slow_x(self.gradient_spin_frac, x)
-                hess = self.fdiff_hess_grad_x(x)
-                
-            np.savetxt("jacobian"+str(self.nIter), hess)
-            print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
-            self.check_sym(hess)
+#            hess = self.fdiff_hess_grad_x(x)
+#            np.savetxt("jacobian"+str(self.nIter), hess)
+#            print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
+#            self.check_sym(hess)
 
 
             self.logNextIter = True
@@ -523,13 +298,6 @@ class lagrangian(object):
         print "Energy is " + str(self.e_hist[-1])
             
         self.nIter+=1
-        
-    def check_UT(self, full_grad, *args):
-        x = self.matToVec(*args)
-        
-        sym_grad = self.sym_lin_grad_wrap(x)
-        assert np.linalg.norm(full_grad - sym_grad) < 1e-10, np.abs(full_grad - sym_grad)
-        
     
     def UTmatToVec(self, *args):
         """ Takes an array of dense matrices and returns a vector of the upper triangular portions.
@@ -545,6 +313,23 @@ class lagrangian(object):
         x = np.hstack(result)
         return x
     
+    def UTvecToMat(self,x):
+        self.tri_offsets() ##TESTING
+        args = []
+        for i in np.arange(len(self.offsets)-1):
+            
+            if self.shapes[i] == 1: #try to remove me
+                args.append(x[self.offsets[i]:self.offsets[i+1]])
+                continue
+            
+            ut = np.zeros([self.shapes[i], self.shapes[i]])
+            ind = np.triu_indices_from(ut)
+            ut[ind] = x[self.offsets[i]:self.offsets[i+1]]
+            temp = 0.5*(ut + ut.T)
+            args.append(temp)
+        self.check_sym(*args)
+        return args
+    
     def matToVec(self, *args):
         result = []
         for i in args:
@@ -552,6 +337,14 @@ class lagrangian(object):
             
         x = np.hstack(result)
         return x
+    
+    def vecToMat(self,x):
+        self.full_offsets() ##TESTING
+        args = []
+        for i in np.arange(len(self.offsets)-1):
+            args.append(x[self.offsets[i]:self.offsets[i+1]].reshape([self.shapes[i], self.shapes[i]]))
+#        assert (np.abs(fdiff_gradient(fn, *args) - gradient(*args)) < 1e-6).all(), (np.abs(fdiff_gradient(fn, *args) - gradient(*args)) < 1e-6, fdiff_gradient(fn, *args), gradient(*args))
+        return args
     
     def check_sym(self, *args):
         for i in args:
@@ -573,44 +366,9 @@ class lagrangian(object):
             
         return result
     
-    def vecToMat(self,x):
-        self.full_offsets() ##TESTING
-        args = []
-        for i in np.arange(len(self.offsets)-1):
-            args.append(x[self.offsets[i]:self.offsets[i+1]].reshape([self.shapes[i], self.shapes[i]]))
-#        assert (np.abs(fdiff_gradient(fn, *args) - gradient(*args)) < 1e-6).all(), (np.abs(fdiff_gradient(fn, *args) - gradient(*args)) < 1e-6, fdiff_gradient(fn, *args), gradient(*args))
-        return args
-    
-    def UTvecToMat(self,x):
-        self.tri_offsets() ##TESTING
-        args = []
-        for i in np.arange(len(self.offsets)-1):
-            
-            if self.shapes[i] == 1: #try to remove me
-                args.append(x[self.offsets[i]:self.offsets[i+1]])
-                continue
-            
-            ut = np.zeros([self.shapes[i], self.shapes[i]])
-            ind = np.triu_indices_from(ut)
-            ut[ind] = x[self.offsets[i]:self.offsets[i+1]]
-#            temp = ut + np.triu(ut, 1).T
-            temp = 0.5*(ut + ut.T)
-            args.append(temp)
-        self.check_sym(*args)
-        return args
-    
-    def test_UTconvert(self,x):
-        xOrig = cp.deepcopy(x)
-        
-        a = self.UTvecToMat(x)
-        b = self.UTmatToVec(*a)
-        
-        assert (np.abs(b - xOrig) < 1e-10).all()
-    
     def tri_offsets(self):
         self.offsets = [0]
         for i in self.matrix_args:
-#            self.offsets.append(np.triu_indices(self.shapes[key])[0].size)
             n = i.shape[0]
             self.offsets.append(int((n + 1)*n/2.))
         self.offsets = np.cumsum(self.offsets)
@@ -621,21 +379,6 @@ class lagrangian(object):
             self.offsets.append(i.size)
         self.offsets = np.cumsum(self.offsets)
         
-    def check_fd(self, an, *args):
-        fdan = np.abs(self.fdiff_gradient(*args) - an)
-        assert (fdan < 1e-6).all(), (fdan < 1e-6, np.where(fdan > 1e-6), fdan)
-        
-    def check_UT_fd(self, an, *args):
-        full_fd = self.fdiff_gradient(*args)
-        fd = self.vecToMat(full_fd)
-        self.check_sym(*fd)
-        fd = self.UTmatToVec(*fd)
-        
-#        print np.linalg.norm(fd-an)
-        
-        fdan = np.abs(fd - an)
-        assert (fdan < 1e-6).all(), (fdan > 1e-6, np.where(fdan > 1e-6), fdan)
-    
     def lin_grad_wrap(self,x):
         self.full_offsets()
         args = self.vecToMat(x)
@@ -653,9 +396,6 @@ class lagrangian(object):
 #        grad[0:2] = self.symmetrize(*grad[0:2]) #average roundoff error in dLdD
         
         result = self.matToVec(*grad)
-        
-#        self.check_fd(result, *args)
-
         
         return result
     
@@ -675,10 +415,5 @@ class lagrangian(object):
 #        grad = self.symmetrize(*grad)
         
         result = self.UTmatToVec(*grad)
-
-        
-#        self.check_UT_fd(result, *args)
-        
-
         
         return result
