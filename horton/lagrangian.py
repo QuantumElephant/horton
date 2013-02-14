@@ -91,7 +91,6 @@ class Lagrangian(object):
     
     def fdiff_hess_grad_x(self, x):
         h = 1e-5
-        fn = self.fdiff_hess_grad_grad
         
         if self.isUT:
             anfn = self.sym_lin_grad_wrap
@@ -109,8 +108,10 @@ class Lagrangian(object):
             
             print "evaluating gradient"
             
-            fdan = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
-            assert fdan < 1e-4, fdan 
+#            fdan = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
+#            fdan = self.sym_lin_grad_wrap(tmpFwd) - self.fdiff_hess_grad_grad(tmpFwd)
+#            fdan_norm = np.linalg.norm(fdan)
+#            assert fdan_norm < 1e-4, fdan 
 #            
             an = (anfn(tmpFwd) - anfn(tmpBack))/ (np.float64(2)*h)
             result.append(an)
@@ -121,14 +122,9 @@ class Lagrangian(object):
     
     def fdiff_hess_grad_grad(self, x):
         h = 1e-5
-        fn = self.lagrangian_spin_frac
+        fn = self.lagrange_x
         
         result = []
-        
-        if self.isUT:
-            reshapeFn = self.UTvecToMat
-        else:
-            reshapeFn = self.vecToMat
         
         for i in np.arange(x.size):        
             tmpFwd = cp.deepcopy(x)
@@ -137,16 +133,16 @@ class Lagrangian(object):
             tmpFwd[i] += h                
             tmpBack[i] -= h
             
-            tmpFwdMat = reshapeFn(tmpFwd)
-            tmpBackMat = reshapeFn(tmpBack)
+            tmpFwdMat = tmpFwd
+            tmpBackMat = tmpBack
             
-            result.append((fn(*tmpFwdMat) - fn(*tmpBackMat)) / (np.float64(2)*h))
+            result.append((fn(tmpFwdMat) - fn(tmpBackMat)) / (np.float64(2)*h))
 
         result = np.hstack(result)
         return result
     
     def calc_grad(self, *args):
-        [da, db, ba, bb, pa, pb, mua, mub] = args
+        [da, db, ba, bb, pa, pb, mua, mub, L1a, L1b, L2a, L2b, L3a, L3b] = args
         S = self.S
         toNumpy = self.toNumpy
         
@@ -169,7 +165,7 @@ class Lagrangian(object):
         numpy_fock_alpha = toNumpy(self.fock_alpha)
         numpy_fock_beta = toNumpy(self.fock_beta)
 #        
-        for spins in [[numpy_fock_alpha, da,ba,pa,[mua], self.constraints[0]], [numpy_fock_beta, db,bb,pb,[mub],self.constraints[1]]]:
+        for spins in [[numpy_fock_alpha, da,ba,pa,[mua, L1a, L2a, L3a], self.constraints[0]], [numpy_fock_beta, db,bb,pb,[mub, L1b, L2b, L3b],self.constraints[1]]]:
             [fock,D,B,P,Mul,constr] = spins
             dLdD = fock
             
@@ -207,21 +203,26 @@ class Lagrangian(object):
 #            result.append(dLdMu)
             for c in constr:
                 result.append(c.self_gradient(D))
-            
-        a = result[0:4]
-        b = result[4:8]    
+        
+        pivot = len(result)/2 
+        a = result[0:pivot]
+        b = result[pivot:]    
         c = [j for i in zip(a,b) for j in i]    
         return c  
     
     def lagrange_x(self, x):
-        args = self.UTvecToMat(x)
+        if self.isUT:
+            args = self.UTvecToMat(x)
+        else:
+            args = self.vecToMat(x)
+        
         result = self.lagrangian_spin_frac(*args)
-#        test = self.lagrangian_spin_frac_old(*args)
-#        
-#        assert result - test < 1e-10
+        test = self.lagrangian_spin_frac_old(*args)
+        
+        assert result - test < 1e-10
         return result 
     
-    def lagrangian_spin_frac(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub):
+    def lagrangian_spin_frac(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b):
         S = self.S
         energy_spin = self.energy_spin
         
@@ -235,7 +236,7 @@ class Lagrangian(object):
         result = 0
         result += energy_spin(Da, Db)
         
-        for spin in [[Da,Ba,Pa,[Mua],self.constraints[0]], [Db,Bb,Pb,[Mub],self.constraints[1]]]:
+        for spin in [[Da,Ba,Pa,[Mua, L1a, L2a, L3a],self.constraints[0]], [Db,Bb,Pb,[Mub, L1b, L2b, L3b],self.constraints[1]]]:
             [D,B,P,Mul,constr] = spin
             pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
             result -= np.trace(pauli_test)
@@ -245,7 +246,7 @@ class Lagrangian(object):
             
         return result
     
-    def lagrangian_spin_frac_old(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub):
+    def lagrangian_spin_frac_old(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b ):
         S = self.S
         N = self.N
         N2 = self.N2
@@ -261,11 +262,14 @@ class Lagrangian(object):
         result = 0
         result += energy_spin(Da, Db)
         
-        for spin in [[Da,Ba,Pa,Mua,N], [Db,Bb,Pb,Mub,N2]]:
-            [D,B,P,Mu,n] = spin
+        for spin in [[Da,Ba,Pa,Mua,N,L1a, L2a, L3a], [Db,Bb,Pb,Mub,N2, L1b, L2b, L3b]]:
+            [D,B,P,Mu,n, L1, L2, L3] = spin
             pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
             result -= np.trace(pauli_test)
             result -= np.squeeze(Mu*(np.trace(np.dot(D,S)) - n))
+            result -= np.squeeze(L1*(np.trace(np.dot(np.dot(D,S),self.constraints[0][1].L)) - n))
+            result -= np.squeeze(L2*(np.trace(np.dot(np.dot(D,S),self.constraints[0][2].L)) - n))
+            result -= np.squeeze(L3*(np.trace(np.dot(np.dot(D,S),self.constraints[0][3].L)) - n))
 #            for c,m in zip(constr, Mul):
 #                result += c.lagrange(D, m) #TODO: Remove dependency on Mu
             
@@ -314,9 +318,9 @@ class Lagrangian(object):
             print "Iter {:d} took {:0.3e} s".format(self.nIter, self.t2-self.t1)
 
         if self.nIter==0 or self.nIter%1500==0 : #THIS GOES FIRST
-#            hess = self.fdiff_hess_grad_x(x)
-#            np.savetxt("jacobian"+str(self.nIter), hess)
-#            print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
+            hess = self.fdiff_hess_grad_x(x)
+            np.savetxt("jacobian"+str(self.nIter), hess)
+            print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
 
             self.logNextIter = True
             self.t1 = time.time()

@@ -207,7 +207,7 @@ def test_H2O():
     L2_b = Constraint(system, 2, L2)
     L3_b = Constraint(system, 2, L3)
 
-    L1_0 = 0.5
+    L1_0 = np.array([0.5])
     L2_0 = L1_0
     L3_0 = L2_0
 
@@ -220,7 +220,9 @@ def test_H2O():
 #    [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua,mub] = a["arr_0"]
     
 #    x0 = np.hstack([pro_da.ravel(), pro_db.ravel(), pro_ba.ravel(), pro_bb.ravel(), pa.ravel(), pb.ravel(), mua, mub]); lg.isUT = False; lg.full_offsets()
-    x0 = prep_D(pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub); lg.isUT = True; lg.tri_offsets()
+    x0 = prep_D(pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_0, L1_0, L2_0, L2_0, L3_0, L3_0); lg.isUT = True; lg.tri_offsets()
+
+    lg.fdiff_hess_grad_x(x0)
 
     x_star = solver.solve(lg, x0)
     
