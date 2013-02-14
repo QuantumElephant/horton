@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 
 np.set_printoptions(threshold = 2000)
 
-def _lg_init(sys, ham, N,  N2, x0_sample, ee_rep=None):
-    lf = sys._lf
-    overlap = sys.get_overlap()
-    lg = lagrangian(lf, overlap, N, N2, x0_sample, sys, ham) # TODO: check normalization
-    return lf, lg
+#def _lg_init(sys, ham, N,  N2, x0_sample, ee_rep=None):
+#    lf = sys._lf
+#    overlap = sys.get_overlap()
+#    lg = lagrangian(lf, overlap, N, N2, x0_sample, sys, ham) # TODO: check normalization
+#    return lf, lg
 
 def sqrtm(A):
     result = np.zeros_like(A)
@@ -113,7 +113,7 @@ def test_grad():
     
     ham = Hamiltonian(system, [HartreeFock()])
 
-    lf, lg = _lg_init(system, ham, N,N2,[pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub])
+    lg = Lagrangian(system, ham, [pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub])
     
     pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
     pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
@@ -134,7 +134,7 @@ def test_UTgrad():
     
     ham = Hamiltonian(system, [HartreeFock()])
 
-    lf, lg = _lg_init(system, ham, N,N2,[pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub])
+    lg = Lagrangian(system, ham, [pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub])
     
     pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
     pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
@@ -185,12 +185,36 @@ def test_H2O():
 #HF
 #    ham = Hamiltonian(system, [HartreeFock()])
 
-    lf, lg = _lg_init(system, ham, N,N2,[pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub])
+    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    
+    L1 = np.eye(dm_a.shape[0])
+    L1[9:,9:] = 0
+    
+    L2 = np.eye(dm_a.shape[0])
+    L2[:9,:9] = 0
+    L2[11:,11:] = 0
+    
+    L3 = np.eye(dm_a.shape[0])
+    L3[:11,:11] = 0
+    
+    
+    L1_a = Constraint(system, 6, L1)
+    L2_a = Constraint(system, 2, L2)
+    L3_a = Constraint(system, 2, L3)
+    
+    L1_b = Constraint(system, 6, L1)
+    L2_b = Constraint(system, 2, L2)
+    L3_b = Constraint(system, 2, L3)
+
+    L1_0 = 0.5
+    L2_0 = L1_0
+    L3_0 = L2_0
+
+    lg = Lagrangian(system, ham,N, N2, [pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub, L1_0, L1_0, L2_0, L2_0, L3_0, L3_0], [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
     
     pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
     pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
-    
-    ind = np.triu_indices(dm_a.shape[0])
     
 #    a = np.load("full_xstar.npz")
 #    [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua,mub] = a["arr_0"]

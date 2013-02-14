@@ -47,3 +47,4 @@ from horton.units import *
 from horton.wfn import *
 from horton.lagrangian import * 
 from horton.newton_rewrite import *
+from horton.constraint import *

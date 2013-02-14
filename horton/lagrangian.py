@@ -7,16 +7,18 @@ import pylab
 import scipy.optimize as op
 
 #TODO: profile to figure out a quick way of evaluating this function.
-class lagrangian(object):
-    def __init__(self, lf, S, N, N2, matrix_args, sys, ham):
-        self.lf = lf
-        self.S = self.toNumpy(S)
+class Lagrangian(object):
+    def __init__(self,sys,ham,N, N2, matrix_args,constraints):
+        self.lf = sys.lf
+        self.S = self.toNumpy(sys.get_overlap())
+        self.constraints = constraints
+        
         self.N = N
         self.N2 = N2
 
         self.shapes = []
         
-        self.matrix_args = matrix_args
+        self.matrix_args = matrix_args #TODO: Refactor me out
         
         self.offsets = [0]
         
@@ -107,9 +109,9 @@ class lagrangian(object):
             
             print "evaluating gradient"
             
-#            fdan = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
-#            assert fdan < 1e-4, fdan 
-            
+            fdan = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
+            assert fdan < 1e-4, fdan 
+#            
             an = (anfn(tmpFwd) - anfn(tmpBack))/ (np.float64(2)*h)
             result.append(an)
 
@@ -146,8 +148,6 @@ class lagrangian(object):
     def calc_grad(self, *args):
         [da, db, ba, bb, pa, pb, mua, mub] = args
         S = self.S
-        N = self.N
-        N2 = self.N2
         toNumpy = self.toNumpy
         
         result = []
@@ -169,8 +169,8 @@ class lagrangian(object):
         numpy_fock_alpha = toNumpy(self.fock_alpha)
         numpy_fock_beta = toNumpy(self.fock_beta)
 #        
-        for spins in [[numpy_fock_alpha, da,ba,pa,mua,N], [numpy_fock_beta, db,bb,pb,mub,N2]]:
-            [fock,D,B,P,Mu,n] = spins
+        for spins in [[numpy_fock_alpha, da,ba,pa,[mua], self.constraints[0]], [numpy_fock_beta, db,bb,pb,[mub],self.constraints[1]]]:
+            [fock,D,B,P,Mul,constr] = spins
             dLdD = fock
             
             sbs = np.dot(np.dot(S,B),S)
@@ -179,7 +179,9 @@ class lagrangian(object):
             outside = sbs - sdsbs - sbsds + sbs.T - sdsbs.T - sbsds.T
             dLdD -= 0.5*outside
         
-            dLdD -= Mu*S
+#            dLdD -= Mu*S
+            for c,m in zip(constr, Mul):
+                dLdD += c.D_gradient(D, m) 
         
             #dL/dB block
             sds = np.dot(np.dot(S,D),S)
@@ -193,7 +195,7 @@ class lagrangian(object):
             dLdP = 0.5*(PB + BP + PB.T + BP.T) 
         
             #dL/d_mu block
-            dLdMu = n - np.trace(np.dot(S,D))
+#            dLdMu = n - np.trace(np.dot(S,D))
             
             dLdD = dLdD.squeeze()
             dLdB = dLdB.squeeze()
@@ -202,7 +204,9 @@ class lagrangian(object):
             result.append(dLdD)
             result.append(dLdB)
             result.append(dLdP)
-            result.append(dLdMu)
+#            result.append(dLdMu)
+            for c in constr:
+                result.append(c.self_gradient(D))
             
         a = result[0:4]
         b = result[4:8]    
@@ -211,9 +215,37 @@ class lagrangian(object):
     
     def lagrange_x(self, x):
         args = self.UTvecToMat(x)
-        return self.lagrangian_spin_frac(*args)
+        result = self.lagrangian_spin_frac(*args)
+#        test = self.lagrangian_spin_frac_old(*args)
+#        
+#        assert result - test < 1e-10
+        return result 
     
     def lagrangian_spin_frac(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub):
+        S = self.S
+        energy_spin = self.energy_spin
+        
+        Da = 0.5*(Da+Da.T)
+        Db = 0.5*(Db+Db.T)
+        Ba = 0.5*(Ba+Ba.T)
+        Bb = 0.5*(Bb+Bb.T)
+        Pa = 0.5*(Pa+Pa.T)
+        Pb = 0.5*(Pb+Pb.T)
+    
+        result = 0
+        result += energy_spin(Da, Db)
+        
+        for spin in [[Da,Ba,Pa,[Mua],self.constraints[0]], [Db,Bb,Pb,[Mub],self.constraints[1]]]:
+            [D,B,P,Mul,constr] = spin
+            pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
+            result -= np.trace(pauli_test)
+#            result -= np.squeeze(Mu*(np.trace(np.dot(D,S)) - n))
+            for c,m in zip(constr, Mul):
+                result += c.lagrange(D, m) #TODO: Remove dependency on Mu
+            
+        return result
+    
+    def lagrangian_spin_frac_old(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub):
         S = self.S
         N = self.N
         N2 = self.N2
@@ -234,6 +266,9 @@ class lagrangian(object):
             pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
             result -= np.trace(pauli_test)
             result -= np.squeeze(Mu*(np.trace(np.dot(D,S)) - n))
+#            for c,m in zip(constr, Mul):
+#                result += c.lagrange(D, m) #TODO: Remove dependency on Mu
+            
         return result
     
     def energy_spin(self, Da, Db):
@@ -282,8 +317,6 @@ class lagrangian(object):
 #            hess = self.fdiff_hess_grad_x(x)
 #            np.savetxt("jacobian"+str(self.nIter), hess)
 #            print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
-#            self.check_sym(hess)
-
 
             self.logNextIter = True
             self.t1 = time.time()
