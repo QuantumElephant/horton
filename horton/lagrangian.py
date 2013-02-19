@@ -8,7 +8,7 @@ import scipy.optimize as op
 
 #TODO: profile to figure out a quick way of evaluating this function.
 class Lagrangian(object):
-    def __init__(self,sys,ham,N, N2, matrix_args,constraints):
+    def __init__(self,sys,ham,N, N2, shapes,constraints):
         self.lf = sys.lf
         self.S = self.toNumpy(sys.get_overlap())
         self.constraints = constraints
@@ -16,14 +16,9 @@ class Lagrangian(object):
         self.N = N
         self.N2 = N2
 
-        self.shapes = []
-        
-        self.matrix_args = matrix_args #TODO: Refactor me out
+        self.shapes = shapes
         
         self.offsets = [0]
-        
-        for i in matrix_args:
-            self.shapes.append(i.shape[0])
         
         self.sys = sys
         self.ham = ham
@@ -99,6 +94,7 @@ class Lagrangian(object):
         
         result = []
 
+#        for i in np.arange(20, x.size):
         for i in np.arange(x.size):
             tmpFwd = cp.deepcopy(x)
             tmpBack = cp.deepcopy(x)
@@ -106,17 +102,19 @@ class Lagrangian(object):
             tmpFwd[i] += h                
             tmpBack[i] -= h
             
-            print "evaluating gradient"
+            print "evaluating gradient: " + str(i)
             
-#            fdan = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
-#            fdan = self.sym_lin_grad_wrap(tmpFwd) - self.fdiff_hess_grad_grad(tmpFwd)
-#            fdan_norm = np.linalg.norm(fdan)
-#            assert fdan_norm < 1e-4, fdan 
+#            fdan_norm = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
+            fdan = self.sym_lin_grad_wrap(tmpFwd) - self.fdiff_hess_grad_grad(tmpFwd)
+            fdan_norm = np.linalg.norm(fdan)
+            assert fdan_norm < 1e-4, fdan 
 #            
             an = (anfn(tmpFwd) - anfn(tmpBack))/ (np.float64(2)*h)
+#            an = (self.fdiff_hess_grad_grad(tmpFwd) - self.fdiff_hess_grad_grad(tmpBack))/ (np.float64(2)*h)
             result.append(an)
 
         result = np.vstack(result)
+
         self.check_sym(result)
         return result
     
@@ -159,8 +157,8 @@ class Lagrangian(object):
         
         self.ham.compute_fock(self.fock_alpha, self.fock_beta)
         
-        self.sys.wfn.invalidate()
-        self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), self.toOneBody(da), self.toOneBody(db))
+#        self.sys.wfn.invalidate()
+#        self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), self.toOneBody(da), self.toOneBody(db))
         
         numpy_fock_alpha = toNumpy(self.fock_alpha)
         numpy_fock_beta = toNumpy(self.fock_beta)
@@ -217,9 +215,9 @@ class Lagrangian(object):
             args = self.vecToMat(x)
         
         result = self.lagrangian_spin_frac(*args)
-        test = self.lagrangian_spin_frac_old(*args)
-        
-        assert result - test < 1e-10
+#        test = self.lagrangian_spin_frac_old(*args)
+#        assert result - test < 1e-10
+
         return result 
     
     def lagrangian_spin_frac(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b):
@@ -405,15 +403,14 @@ class Lagrangian(object):
     
     def tri_offsets(self):
         self.offsets = [0]
-        for i in self.matrix_args:
-            n = i.shape[0]
+        for n in self.shapes:
             self.offsets.append(int((n + 1)*n/2.))
         self.offsets = np.cumsum(self.offsets)
         
     def full_offsets(self):
         self.offsets = [0]
-        for i in self.matrix_args:
-            self.offsets.append(i.size)
+        for n in self.shapes:
+            self.offsets.append(n**2)
         self.offsets = np.cumsum(self.offsets)
         
     def lin_grad_wrap(self,x):

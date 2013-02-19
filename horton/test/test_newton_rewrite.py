@@ -158,7 +158,7 @@ def prep_D(*args):
 def test_H2O():
     solver = NewtonKrylov()
 #    
-#    basis = 'sto-3g' #CHANGE1
+#    basis = 'sto-3g'
     basis = '3-21G'
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
@@ -188,41 +188,54 @@ def test_H2O():
     norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
     
-    L1 = np.eye(dm_a.shape[0])
-    L1[9:,9:] = 0
     
-    L2 = np.eye(dm_a.shape[0])
-    L2[:9,:9] = 0
-    L2[11:,11:] = 0
+    L1 = np.eye(dm_a.shape[0]); print "3-21G ONLY!"
+    L1[9:,9:] = 0; print "3-21G ONLY!"
     
-    L3 = np.eye(dm_a.shape[0])
-    L3[:11,:11] = 0
+    L2 = np.eye(dm_a.shape[0]); print "3-21G ONLY!"
+    L2[:9,:9] = 0; print "3-21G ONLY!"
+    L2[11:,11:] = 0; print "3-21G ONLY!"
+    
+    L3 = np.eye(dm_a.shape[0]); print "3-21G ONLY!"
+    L3[:11,:11] = 0; print "3-21G ONLY!"
     
     
-    L1_a = Constraint(system, 6, L1)
-    L2_a = Constraint(system, 2, L2)
-    L3_a = Constraint(system, 2, L3)
+    L1_a = Constraint(system, 3, L1)
+    L2_a = Constraint(system, 1, L2)
+    L3_a = Constraint(system, 1, L3)
     
-    L1_b = Constraint(system, 6, L1)
-    L2_b = Constraint(system, 2, L2)
-    L3_b = Constraint(system, 2, L3)
+    L1_b = Constraint(system, 3, L1)
+    L2_b = Constraint(system, 1, L2)
+    L3_b = Constraint(system, 1, L3)
 
-    L1_0 = np.array([0.5])
-    L2_0 = L1_0
-    L3_0 = L2_0
+    L1_a0 = np.array(0.5)
+    L1_b0 = np.array(0.5)
+    L2_a0 = np.array(0.5)
+    L2_b0 = np.array(0.5)
+    L3_a0 = np.array(0.5)
+    L3_b0 = np.array(0.5)
 
-    lg = Lagrangian(system, ham,N, N2, [pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub, L1_0, L1_0, L2_0, L2_0, L3_0, L3_0], [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
-    
     pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
     pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
     
 #    a = np.load("full_xstar.npz")
 #    [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua,mub] = a["arr_0"]
     
-#    x0 = np.hstack([pro_da.ravel(), pro_db.ravel(), pro_ba.ravel(), pro_bb.ravel(), pa.ravel(), pb.ravel(), mua, mub]); lg.isUT = False; lg.full_offsets()
-    x0 = prep_D(pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_0, L1_0, L2_0, L2_0, L3_0, L3_0); lg.isUT = True; lg.tri_offsets()
+#    x0 = np.hstack(*args); lg.isUT = False; lg.full_offsets()
+    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
-    lg.fdiff_hess_grad_x(x0)
+#    lg.fdiff_hess_grad_x(x0)
 
     x_star = solver.solve(lg, x0)
     
