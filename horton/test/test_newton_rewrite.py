@@ -185,10 +185,22 @@ def test_H2O():
 #HF
 #    ham = Hamiltonian(system, [HartreeFock()])
 
+    L1_a0 = np.array(0.5)
+    L1_b0 = np.array(0.5)
+    L2_a0 = np.array(0.5)
+    L2_b0 = np.array(0.5)
+    L3_a0 = np.array(0.5)
+    L3_b0 = np.array(0.5)
+
+    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
+    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
+
+#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+
     norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
-    
-    
+
     L1 = np.eye(dm_a.shape[0]); print "3-21G ONLY!"
     L1[9:,9:] = 0; print "3-21G ONLY!"
     
@@ -208,18 +220,6 @@ def test_H2O():
     L2_b = Constraint(system, 1, L2)
     L3_b = Constraint(system, 1, L3)
 
-    L1_a0 = np.array(0.5)
-    L1_b0 = np.array(0.5)
-    L2_a0 = np.array(0.5)
-    L2_b0 = np.array(0.5)
-    L3_a0 = np.array(0.5)
-    L3_b0 = np.array(0.5)
-
-    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
-    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
-
-    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
-
     shapes = []
     for i in args:
         if i.size == 1:
@@ -227,7 +227,8 @@ def test_H2O():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
+#    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
+    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
     
 #    a = np.load("full_xstar.npz")
 #    [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua,mub] = a["arr_0"]
