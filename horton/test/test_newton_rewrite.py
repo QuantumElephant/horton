@@ -28,6 +28,7 @@ def promol_guess(sys, basis):
     occ_beta = []
     e_alpha = []
     e_beta = []
+    nbasis = []
     
     for i in np.sort(sys.numbers)[::-1]:
         atom_sys = System(np.zeros((1,3), float), np.array([i]), obasis=basis) #hacky
@@ -36,6 +37,7 @@ def promol_guess(sys, basis):
         else:
             atom_sys.init_wfn(restricted=False)        
 
+        nbasis.append(atom_sys.wfn.nbasis)
         guess_hamiltonian_core(atom_sys)
 
 #DFT
@@ -70,7 +72,7 @@ def promol_guess(sys, basis):
     e_alpha = np.hstack(e_alpha)
     e_beta = np.hstack(e_beta)
     
-    return orb_alpha, orb_beta, occ_alpha, occ_beta, e_alpha, e_beta
+    return orb_alpha, orb_beta, occ_alpha, occ_beta, e_alpha, e_beta, nbasis
     
 
 def promol_h2o(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b):
@@ -158,8 +160,8 @@ def prep_D(*args):
 def test_H2O():
     solver = NewtonKrylov()
 #    
-#    basis = 'sto-3g'
-    basis = '3-21G'
+    basis = 'sto-3g'
+#    basis = '3-21G'
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
@@ -171,7 +173,7 @@ def test_H2O():
 #    system.init_wfn(restricted=False)
 #    guess_hamiltonian_core(system)
 
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b = promol_guess(system, basis)
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
     [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b)
 
     S = system.get_overlap()._array
@@ -195,21 +197,36 @@ def test_H2O():
     pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
     pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
 
-#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
-    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
+#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
     norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
 
-    L1 = np.eye(dm_a.shape[0]); print "3-21G ONLY!"
-    L1[9:,9:] = 0; print "3-21G ONLY!"
+    L1 = np.eye(dm_a.shape[0]);
+    L2 = np.eye(dm_a.shape[0]);
+    L3 = np.eye(dm_a.shape[0]);
     
-    L2 = np.eye(dm_a.shape[0]); print "3-21G ONLY!"
-    L2[:9,:9] = 0; print "3-21G ONLY!"
-    L2[11:,11:] = 0; print "3-21G ONLY!"
+    prev_idx = 0
+    for key,i in enumerate([L1, L2, L3]):
+        upper_R = prev_idx
+        lower_R = nbasis[key] + prev_idx
+        
+        i[:upper_R, :upper_R] = 0
+        i[lower_R:, lower_R:] = 0
+        
+        prev_idx += nbasis[key]
+        
     
-    L3 = np.eye(dm_a.shape[0]); print "3-21G ONLY!"
-    L3[:11,:11] = 0; print "3-21G ONLY!"
+#    L1[9:,9:] = 0; print "3-21G ONLY!"
+#    L2[:9,:9] = 0; print "3-21G ONLY!"
+#    L2[11:,11:] = 0; print "3-21G ONLY!"
+#    L3[:11,:11] = 0; print "3-21G ONLY!"
+#    
+#    L1[5:,5:] = 0; print "STO-3G ONLY!"
+#    L2[5:6,5:6] = 0; print "STO-3G ONLY!"
+#    L2[6:,6:] = 0; print "STO-3G ONLY!"
+#    L3[:6,:6] = 0; print "STO-3G ONLY!"
     
     
     L1_a = Constraint(system, 3, L1)
@@ -227,8 +244,8 @@ def test_H2O():
             continue
         shapes.append(i.shape[0])
 
-#    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
-    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
+#    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
     
 #    a = np.load("full_xstar.npz")
 #    [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua,mub] = a["arr_0"]

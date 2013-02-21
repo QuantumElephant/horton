@@ -36,7 +36,8 @@ class Constraint(object):
         return self.C - np.dot(P.ravel(), self.L.ravel())
     def D_gradient(self, D, Mul):
         Mul = Mul.squeeze()
-        LS = np.dot(self.L, self.S)
-        return -Mul*0.5*(LS + LS.T)
+        SL = np.dot(self.S, self.L)
+        
+        return -Mul*0.5*(SL + SL.T)
         
         
