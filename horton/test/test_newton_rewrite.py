@@ -76,9 +76,19 @@ def promol_guess(sys, basis):
     
 
 def promol_h2o(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b):
-    occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5
-    occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5
+#    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5; #STO-3G ONLY
+#    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
     
+#    occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
+#    occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
+
+    occ_a = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N=5; print "Using atomic constrained occ" #3-21G ONLY
+    occ_b = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N2=5; print "Using atomic constrained occ" #3-21G ONLY
+
+#    occ_a = #TODO: add 6-31++G** occupations 
+
+    assert occ_a.size == orb_a.shape[0] and occ_b.size == orb_b.shape[0]
+
 #    N = np.sum(occ_a)
 #    N2 = np.sum(occ_b)
 #    N2 = np.sum(occ_a)
@@ -160,8 +170,9 @@ def prep_D(*args):
 def test_H2O():
     solver = NewtonKrylov()
 #    
-    basis = 'sto-3g'
-#    basis = '3-21G'
+#    basis = 'sto-3g'
+    basis = '3-21G'
+#    basis = '6-31++G**'
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
@@ -197,7 +208,9 @@ def test_H2O():
     pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
     pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
 
-    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
+#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
+#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
     norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
@@ -208,7 +221,7 @@ def test_H2O():
     L3 = np.eye(dm_a.shape[0]);
     
     prev_idx = 0
-    for key,i in enumerate([L1, L2, L3]):
+    for key,i in enumerate([L1, L2, L3]): #WATER ONLY
         upper_R = prev_idx
         lower_R = nbasis[key] + prev_idx
         
@@ -216,24 +229,12 @@ def test_H2O():
         i[lower_R:, lower_R:] = 0
         
         prev_idx += nbasis[key]
-        
     
-#    L1[9:,9:] = 0; print "3-21G ONLY!"
-#    L2[:9,:9] = 0; print "3-21G ONLY!"
-#    L2[11:,11:] = 0; print "3-21G ONLY!"
-#    L3[:11,:11] = 0; print "3-21G ONLY!"
-#    
-#    L1[5:,5:] = 0; print "STO-3G ONLY!"
-#    L2[5:6,5:6] = 0; print "STO-3G ONLY!"
-#    L2[6:,6:] = 0; print "STO-3G ONLY!"
-#    L3[:6,:6] = 0; print "STO-3G ONLY!"
+    L1_a = Constraint(system, 5, L1) #WATER ONLY
+    L2_a = Constraint(system, 0, L2)
+    L3_a = Constraint(system, 0, L3)
     
-    
-    L1_a = Constraint(system, 3, L1)
-    L2_a = Constraint(system, 1, L2)
-    L3_a = Constraint(system, 1, L3)
-    
-    L1_b = Constraint(system, 3, L1)
+    L1_b = Constraint(system, 3, L1) #WATER ONLY
     L2_b = Constraint(system, 1, L2)
     L3_b = Constraint(system, 1, L3)
 
@@ -244,7 +245,9 @@ def test_H2O():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
+#    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
+    lg = Lagrangian(system, ham,N, N2, shapes, [[L1_a, L2_a, L3_a],[L1_b, L2_b, L3_b]])
+#    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a],[norm_b, L1_b, L2_b]])
 #    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
     
 #    a = np.load("full_xstar.npz")
@@ -256,6 +259,7 @@ def test_H2O():
 #    lg.fdiff_hess_grad_x(x0)
 
     x_star = solver.solve(lg, x0)
+    lg.callback_system(x_star, None)
     
     if lg.isUT:
         print lg.UTvecToMat(x_star)
