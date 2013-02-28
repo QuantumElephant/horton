@@ -144,6 +144,7 @@ class Lagrangian(object):
         [da, db, ba, bb, pa, pb] = args[0:6] #TODO: generalize me!
         La = args[6::2]#         mua, mub,L1a, L1b, L2a, L2b, L3a, L3b
         Lb = args[7::2]
+#        print (La, Lb)
         
         S = self.S
         toNumpy = self.toNumpy
@@ -227,6 +228,7 @@ class Lagrangian(object):
         [Da, Db, Ba, Bb, Pa, Pb] = args[0:6]
         La = args[6::2] #Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b
         Lb = args[7::2]
+        print(La,Lb)
         
         S = self.S
         energy_spin = self.energy_spin
@@ -303,12 +305,12 @@ class Lagrangian(object):
         return Na
     
     def callback_system(self, x, dummy2):
-        self.occ_hist_a.append(self.sys.wfn.exp_alpha.occupations)
+        self.occ_hist_a.append(self.sys.wfn.exp_alpha.occupations) #Not ordered
 #        self.e_hist_a.append(self.sys.wfn.exp_alpha.energies)
         print "occ alpha:", self.occ_hist_a[-1]
 #        print "e alpha:", self.e_hist_a[-1]
         if isinstance(self.sys.wfn, horton.wfn.OpenShellWFN):
-            self.occ_hist_b.append(self.sys.wfn.exp_beta.occupations)
+            self.occ_hist_b.append(self.sys.wfn.exp_beta.occupations) #Not ordered
 #            self.e_hist_b.append(self.sys.wfn.exp_beta.energies)
             print "occ beta:", self.occ_hist_b[-1]
 #            print "e beta:", self.e_hist_b[-1]
@@ -323,9 +325,9 @@ class Lagrangian(object):
             print "Iter {:d} took {:0.3e} s".format(self.nIter, self.t2-self.t1)
 
         if self.nIter==0 or self.nIter%1500==0 : #THIS GOES FIRST
-            hess = self.fdiff_hess_grad_x(x)
-            np.savetxt("jacobian"+str(self.nIter), hess)
-            print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
+#            hess = self.fdiff_hess_grad_x(x)
+#            np.savetxt("jacobian"+str(self.nIter), hess)
+#            print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
 
             self.logNextIter = True
             self.t1 = time.time()

@@ -209,9 +209,10 @@ def test_H2O():
     pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
 
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
-    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
+#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0]
-#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0]
 
     norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
@@ -220,6 +221,7 @@ def test_H2O():
     L2 = np.eye(dm_a.shape[0]);
     L3 = np.eye(dm_a.shape[0]);
     
+    #Generate atomic occupancy matrix (L)
     prev_idx = 0
     for key,i in enumerate([L1, L2, L3]): #WATER ONLY
         upper_R = prev_idx
@@ -230,13 +232,13 @@ def test_H2O():
         
         prev_idx += nbasis[key]
     
-    L1_a = Constraint(system, 5, L1) #WATER ONLY
+    L1_a = Constraint(system, 4, L1) #WATER ONLY
     L2_a = Constraint(system, 0, L2)
     L3_a = Constraint(system, 0, L3)
     
-    L1_b = Constraint(system, 3, L1) #WATER ONLY
-    L2_b = Constraint(system, 1, L2)
-    L3_b = Constraint(system, 1, L3)
+    L1_b = Constraint(system, 4, L1) #WATER ONLY
+    L2_b = Constraint(system, 0, L2)
+    L3_b = Constraint(system, 0, L3)
 
     shapes = []
     for i in args:
@@ -246,9 +248,10 @@ def test_H2O():
         shapes.append(i.shape[0])
 
 #    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
-    lg = Lagrangian(system, ham,N, N2, shapes, [[L1_a, L2_a, L3_a],[L1_b, L2_b, L3_b]])
+#    lg = Lagrangian(system, ham,N, N2, shapes, [[L1_a, L2_a, L3_a],[L1_b, L2_b, L3_b]])
 #    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a],[norm_b, L1_b, L2_b]])
-#    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+#    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a],[norm_b, L1_b]]) #O:4/4
     
 #    a = np.load("full_xstar.npz")
 #    [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua,mub] = a["arr_0"]
@@ -259,7 +262,7 @@ def test_H2O():
 #    lg.fdiff_hess_grad_x(x0)
 
     x_star = solver.solve(lg, x0)
-    lg.callback_system(x_star, None)
+#    lg.callback_system(x_star, None)
     
     if lg.isUT:
         print lg.UTvecToMat(x_star)

@@ -38,6 +38,6 @@ class Constraint(object):
         Mul = Mul.squeeze()
         SL = np.dot(self.S, self.L)
         
-        return -Mul*0.5*(SL + SL.T)
+        return -Mul*0.5*(SL + SL.T) #Should this always be negative?
         
         
