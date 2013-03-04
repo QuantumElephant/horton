@@ -179,7 +179,10 @@ class Lagrangian(object):
             dLdD -= 0.5*outside
         
             for c,l in zip(con, ls):
-                dLdD += c.D_gradient(D, l) 
+                dLdD += c.D_gradient(D, l)
+            
+            #debug
+            assert (np.abs(con[0].D_gradient(D,ls[0]) + ls*S) < 1e-10).all(), con[0].D_gradient(D,ls[0]) + ls*S
         
             #dL/dB block
             sds = np.dot(np.dot(S,D),S)
@@ -205,6 +208,9 @@ class Lagrangian(object):
 #            result.append(dLdMu)
             for c in con:
                 result.append(c.self_gradient(D))
+            
+            #debug
+            assert np.abs(con[0].self_gradient(D) - (con[0].C - np.trace(np.dot(S,D)))) < 1e-10
         
         pivot = len(result)/2 
         a = result[0:pivot]
