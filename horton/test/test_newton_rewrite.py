@@ -190,13 +190,13 @@ def test_H2O():
     S = system.get_overlap()._array
 
 #DFT
-    grid = BeckeMolGrid(system, random_rotate=False)
-    
-    libxc_term = LibXCLDATerm('x')
-    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+#    grid = BeckeMolGrid(system, random_rotate=False)
+#    
+#    libxc_term = LibXCLDATerm('x')
+#    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
 
 #HF
-#    ham = Hamiltonian(system, [HartreeFock()])
+    ham = Hamiltonian(system, [HartreeFock()])
 
     L1_a0 = np.array(0.5)
     L1_b0 = np.array(0.5)
