@@ -66,21 +66,18 @@ def promol_guess(sys, basis):
     occ_alpha = np.hstack(occ_alpha)
     occ_beta = np.hstack(occ_beta)
 
-#    occ_alpha = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5])
-#    occ_beta = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5])
-    
     e_alpha = np.hstack(e_alpha)
     e_beta = np.hstack(e_beta)
     
     return orb_alpha, orb_beta, occ_alpha, occ_beta, e_alpha, e_beta, nbasis
     
 
-def promol_h2o(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b):
+def promol_h2o(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, N = None, N2 = None):
 #    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5; #STO-3G ONLY
 #    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
     
-    occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
-    occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
+#    occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
+#    occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
 
 #    occ_a = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N=5; print "Using atomic constrained occ" #3-21G ONLY
 #    occ_b = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N2=5; print "Using atomic constrained occ" #3-21G ONLY
@@ -89,9 +86,9 @@ def promol_h2o(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b):
 
     assert occ_a.size == orb_a.shape[0] and occ_b.size == orb_b.shape[0]
 
-#    N = np.sum(occ_a)
-#    N2 = np.sum(occ_b)
-#    N2 = np.sum(occ_a)
+    if N is None or N2 is None:
+        N = np.sum(occ_a)
+        N2 = np.sum(occ_b)
     
     pro_da = np.zeros_like(orb_a)
     pro_ba = np.zeros_like(orb_a)
@@ -295,7 +292,7 @@ def test_H2O():
     
     plt.show()
     
-test_H2O()
+#test_H2O()
 
 #def test_UTconvert():
 #    basis = 'sto-3g' #CHANGE1
@@ -345,32 +342,88 @@ def Horton_H2O():
     
 #Horton_H2O()
 
-#def fdiff_hess_slow():
-#    basis = '3-21G'
-#    system = System.from_file('water_equilim.xyz', obasis=basis)
-#    system.init_wfn(charge=0, mult=1, restricted=False)
+def HF_STO3G_Frac():
+    solver = NewtonKrylov()
 #    
-#    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b = promol_guess(system, basis)
-#    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b)
-#
-#    S = system.get_overlap()._array
-#    
-#    ham = Hamiltonian(system, [HartreeFock()])
-#
-#    lf, lg = _lg_init(system, ham, N,N2,[pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub])
-#    
-#    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S))
-#    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S))
-#        
-#    x0 = np.hstack([pro_da.ravel(), pro_db.ravel(), pro_ba.ravel(), pro_bb.ravel(), pa.ravel(), pb.ravel(), mua, mub])
-#    
-#    print "HESSIAN" 
-##    a = lg.fdiff_gradient(*lg.lin_wrap(x0))
-#    b = lg.fdiff_hess_grad_x(x0)
-#    
-##    for key,i in enumerate(a):
-##        print np.linalg.norm(a[key] - b[key])
-#    
-#    np.savetxt("jacobian", b)
+    basis = 'sto-3g'
+    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
     
-#fdiff_hess_slow()
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
+    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
+    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+
+    S = system.get_overlap()._array
+#HF
+    ham = Hamiltonian(system, [HartreeFock()])
+
+    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
+    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+
+    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    
+    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    x_star = solver.solve(lg, x0)
+    
+    print "Actual E:" + str(-73.6103361707)
+    print "Computed E:" + str(ham.compute_energy())
+    assert np.abs(ham.compute_energy() - -73.6103361707) < 1e-10
+    
+#HF_STO3G_Frac()
+
+def HF_321G_Frac():
+    solver = NewtonKrylov()
+    
+    basis = '3-21G'
+    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
+    occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
+    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+
+    S = system.get_overlap()._array
+#HF
+    ham = Hamiltonian(system, [HartreeFock()])
+
+    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
+    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+
+    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    
+    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    x_star = solver.solve(lg, x0)
+    
+    print "Actual E:" + str(-75.0812082641)
+    print "Computed E:" + str(ham.compute_energy())
+    assert np.abs(ham.compute_energy() - -75.0812082641) < 1e-10
+    
+HF_321G_Frac()
