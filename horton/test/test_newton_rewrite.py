@@ -342,6 +342,44 @@ def Horton_H2O():
     
 #Horton_H2O()
 
+def HF_STO3G():
+    solver = NewtonKrylov()
+#    
+    basis = 'sto-3g'
+    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
+    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
+    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+
+#HF
+    ham = Hamiltonian(system, [HartreeFock()])
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
+
+    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    
+    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    x_star = solver.solve(lg, x0)
+    
+    print "Actual E:" + str(-73.6103361707)
+    print "Computed E:" + str(ham.compute_energy())
+    assert np.abs(ham.compute_energy() - -73.6103361707) < 1e-10
+    
+
 def HF_STO3G_Frac():
     solver = NewtonKrylov()
 #    
