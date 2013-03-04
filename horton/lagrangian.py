@@ -17,6 +17,10 @@ class Lagrangian(object):
         self.N2 = N2
 
         self.shapes = shapes
+        if len(shapes) - len(constraints[0]) - len(constraints[1]) == 6:
+            self.ifFrac = True
+        else:
+            self.ifFrac = False
         
         self.offsets = [0]
         
@@ -104,11 +108,11 @@ class Lagrangian(object):
             
             print "evaluating gradient: " + str(i)
             
-#            fdan_norm = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
+            fdan_norm = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
 #            assert fdan_norm < 1e-4, fdan_norm
 #            fdan = self.sym_lin_grad_wrap(tmpFwd) - self.fdiff_hess_grad_grad(tmpFwd)
 #            fdan_norm = np.linalg.norm(fdan)
-#            assert fdan_norm < 1e-4, fdan_norm
+            assert fdan_norm < 1e-4, fdan_norm
 #            
             an = (anfn(tmpFwd) - anfn(tmpBack))/ (np.float64(2)*h)
 #            an = (self.fdiff_hess_grad_grad(tmpFwd) - self.fdiff_hess_grad_grad(tmpBack))/ (np.float64(2)*h)
@@ -141,10 +145,17 @@ class Lagrangian(object):
         return result
     
     def calc_grad(self, *args): #move to kwargs eventually
-        [da, db, ba, bb, pa, pb] = args[0:6] #TODO: generalize me!
-        La = args[6::2]#         mua, mub,L1a, L1b, L2a, L2b, L3a, L3b
-        Lb = args[7::2]
-#        print (La, Lb)
+#        [da, db, ba, bb, pa, pb] = args[0:6] #TODO: generalize me!
+#        La = args[6::2]#         mua, mub,L1a, L1b, L2a, L2b, L3a, L3b
+#        Lb = args[7::2]
+        
+        alpha_args = list(args[::2]) #args == [da, db, ba, bb] possibly including [pa, pb] 
+        beta_args = list(args[1::2])
+        alpha_args.append(self.constraints[0])
+        beta_args.append(self.constraints[1])
+
+        da = alpha_args[0]
+        db = beta_args[0]
         
         S = self.S
         toNumpy = self.toNumpy
@@ -162,14 +173,17 @@ class Lagrangian(object):
         
         self.ham.compute_fock(self.fock_alpha, self.fock_beta)
         
-        self.sys.wfn.invalidate() #Used for callback debugging
+        self.sys.wfn.invalidate() #Used for debugging occupations in callback
         self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), self.toOneBody(da), self.toOneBody(db)) #Used for callback debugging
         
-        numpy_fock_alpha = toNumpy(self.fock_alpha)
-        numpy_fock_beta = toNumpy(self.fock_beta)
+        alpha_args.append(toNumpy(self.fock_alpha))
+        beta_args.append(toNumpy(self.fock_beta))
 #        
-        for spin in [[numpy_fock_alpha, da,ba,pa,La, self.constraints[0]], [numpy_fock_beta, db,bb,pb,Lb,self.constraints[1]]]:
-            [fock,D,B,P,ls,con] = spin
+        for spin in (alpha_args, beta_args):
+            if self.ifFrac:
+                [D,B,P,ls,con,fock] = spin
+            else:
+                [D,B,ls,con,fock] = spin
             dLdD = fock
             
             sbs = np.dot(np.dot(S,B),S)
@@ -187,25 +201,28 @@ class Lagrangian(object):
             #dL/dB block
             sds = np.dot(np.dot(S,D),S)
             sdsds = np.dot(np.dot(np.dot(np.dot(S,D),S),D),S)
-            pp = np.dot(P,P)
+            
+            if self.ifFrac:
+                pp = np.dot(P,P)
+            else:
+                pp = np.zeros_like(sds)
             dLdB = -0.5*(sds - sdsds - pp + sds.T - sdsds.T - pp.T)
             
-            #dL/dP block
-            PB = np.dot(P,B)
-            BP = np.dot(B,P)
-            dLdP = 0.5*(PB + BP + PB.T + BP.T) 
+            if self.ifFrac: #TODO: abstract out constraint eventually
+                #dL/dP block
+                PB = np.dot(P,B)
+                BP = np.dot(B,P)
+                dLdP = 0.5*(PB + BP + PB.T + BP.T) 
         
-            #dL/d_mu block
-#            dLdMu = n - np.trace(np.dot(S,D))
-            
             dLdD = dLdD.squeeze()
             dLdB = dLdB.squeeze()
-            dLdP = dLdP.squeeze()
+            
             
             result.append(dLdD)
             result.append(dLdB)
-            result.append(dLdP)
-#            result.append(dLdMu)
+            if self.ifFrac:
+                dLdP = dLdP.squeeze()
+                result.append(dLdP)
             for c in con:
                 result.append(c.self_gradient(D))
             
@@ -231,27 +248,36 @@ class Lagrangian(object):
         return result 
     
     def lagrangian_spin_frac(self, *args):
-        [Da, Db, Ba, Bb, Pa, Pb] = args[0:6]
-        La = args[6::2] #Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b
-        Lb = args[7::2]
-        print(La,Lb)
+#        [Da, Db, Ba, Bb, Pa, Pb] = args[0:6]
+#        La = args[6::2] #Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b
+#        Lb = args[7::2]
+#        print(La,Lb)
+
+        args = self.symmetrize(*args)
+
+        alpha_args = list(args[::2])
+        beta_args = list(args[1::2])
+        
+        alpha_args.append(self.constraints[0])
+        beta_args.append(self.constraints[1])
         
         S = self.S
         energy_spin = self.energy_spin
-        
-        Da = 0.5*(Da+Da.T)
-        Db = 0.5*(Db+Db.T)
-        Ba = 0.5*(Ba+Ba.T)
-        Bb = 0.5*(Bb+Bb.T)
-        Pa = 0.5*(Pa+Pa.T)
-        Pb = 0.5*(Pb+Pb.T)
+    
+        Da = alpha_args[0]
+        Db = beta_args[0]
     
         result = 0
         result += energy_spin(Da, Db)
         
-        for spin in [[Da,Ba,Pa,La,self.constraints[0]], [Db,Bb,Pb,Lb,self.constraints[1]]]:
-            [D,B,P,L,con] = spin
-            pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
+        for spin in (alpha_args, beta_args):
+            if self.ifFrac:
+                [D,B,P,L,con] = spin
+                pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
+            else:
+                [D,B,L,con] = spin
+                pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S))
+            
             result -= np.trace(pauli_test)
 #            result -= np.squeeze(Mu*(np.trace(np.dot(D,S)) - n))
             for c,m in zip(con, L):
