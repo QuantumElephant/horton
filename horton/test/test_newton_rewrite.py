@@ -418,7 +418,7 @@ def HF_321G():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -75.585960) < 1e-4
     
-HF_321G()
+#HF_321G()
 
 
 def HF_STO3G_Frac():
@@ -505,4 +505,4 @@ def HF_321G_Frac():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -75.0812082641) < 1e-10
     
-#HF_321G_Frac()
+HF_321G_Frac()
