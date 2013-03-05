@@ -33,7 +33,8 @@ class Constraint(object):
         return -Mul*(np.dot(self.L.ravel(), P.ravel()) - self.C)
     def self_gradient(self, D):
         P = np.dot(self.S,D)
-        return self.C - np.dot(P.ravel(), self.L.ravel())
+#        return self.C - np.dot(P.ravel(), self.L.ravel())
+        return self.C - np.trace(np.dot(P, self.L))
     def D_gradient(self, D, Mul):
         Mul = Mul.squeeze()
         SL = np.dot(self.S, self.L)

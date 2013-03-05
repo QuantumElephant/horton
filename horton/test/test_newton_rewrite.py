@@ -420,6 +420,87 @@ def HF_321G():
     
 #HF_321G()
 
+def DFT_STO3G():
+    solver = NewtonKrylov()
+#    
+    basis = 'sto-3g'
+    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
+    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
+    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+
+    grid = BeckeMolGrid(system, random_rotate=False)
+    
+    libxc_term = LibXCLDATerm('XC_TETER93')
+    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
+
+    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    
+    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    x_star = solver.solve(lg, x0)
+    
+    print "Actual E:" + str(-74.939072)
+    print "Computed E:" + str(ham.compute_energy())
+    assert np.abs(ham.compute_energy() - -74.939072) < 1e-4
+    
+DFT_STO3G()
+
+def DFT_321G():
+    solver = NewtonKrylov()
+#    
+    basis = '3-21G'
+    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
+    occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
+    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+
+    grid = BeckeMolGrid(system, random_rotate=False)
+    
+    libxc_term = LibXCLDATerm('x')
+    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
+
+    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    
+    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    x_star = solver.solve(lg, x0)
+    
+    print "Actual E:" + str(-75.585960)
+    print "Computed E:" + str(ham.compute_energy())
+    assert np.abs(ham.compute_energy() - -75.585960) < 1e-4
+    
+#DFT_321G()
 
 def HF_STO3G_Frac():
     solver = NewtonKrylov()
@@ -505,4 +586,4 @@ def HF_321G_Frac():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -75.0812082641) < 1e-10
     
-HF_321G_Frac()
+#HF_321G_Frac()
