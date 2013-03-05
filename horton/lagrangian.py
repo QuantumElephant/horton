@@ -19,8 +19,10 @@ class Lagrangian(object):
         self.shapes = shapes
         if len(shapes) - len(constraints[0]) - len(constraints[1]) == 6:
             self.ifFrac = True
+            print "Fractional occupations enabled"
         else:
             self.ifFrac = False
+            print "Fractional occupations disabled"
         
         self.offsets = [0]
         
@@ -158,7 +160,6 @@ class Lagrangian(object):
         db = beta_args[0]
         
         S = self.S
-        toNumpy = self.toNumpy
         
         result = []
     
@@ -173,11 +174,11 @@ class Lagrangian(object):
         
         self.ham.compute_fock(self.fock_alpha, self.fock_beta)
         
-        self.sys.wfn.invalidate() #Used for debugging occupations in callback
-        self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), self.toOneBody(da), self.toOneBody(db)) #Used for callback debugging
+#        self.sys.wfn.invalidate() #Used for debugging occupations in callback
+#        self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), self.toOneBody(da), self.toOneBody(db)) #Used for callback debugging
         
-        alpha_args.append(toNumpy(self.fock_alpha))
-        beta_args.append(toNumpy(self.fock_beta))
+        alpha_args.append(self.toNumpy(self.fock_alpha))
+        beta_args.append(self.toNumpy(self.fock_beta))
 #        
         for spin in (alpha_args, beta_args):
             if self.ifFrac:
@@ -216,7 +217,6 @@ class Lagrangian(object):
         
             dLdD = dLdD.squeeze()
             dLdB = dLdB.squeeze()
-            
             
             result.append(dLdD)
             result.append(dLdB)
