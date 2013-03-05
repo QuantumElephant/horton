@@ -179,22 +179,27 @@ class Lagrangian(object):
         
         alpha_args.append(self.toNumpy(self.fock_alpha))
         beta_args.append(self.toNumpy(self.fock_beta))
-#        
+        
+        print "alpha"
         for spin in (alpha_args, beta_args):
             if self.ifFrac:
                 [D,B,P,ls,con,fock] = spin
             else:
                 [D,B,ls,con,fock] = spin
             dLdD = fock
+            print "fock", dLdD
             
             sbs = np.dot(np.dot(S,B),S)
             sdsbs = np.dot(np.dot(S,D),sbs)
             sbsds = np.dot(np.dot(sbs,D),S)    
             outside = sbs - sdsbs - sbsds + sbs.T - sdsbs.T - sbsds.T
             dLdD -= 0.5*outside
+            print "fock - outside", dLdD
         
             for c,l in zip(con, ls):
                 dLdD += c.D_gradient(D, l)
+                print "fock - outside - Mu", dLdD
+            
             
             #debug
             assert (np.abs(con[0].D_gradient(D,ls[0]) + ls*S) < 1e-10).all(), con[0].D_gradient(D,ls[0]) + ls*S
@@ -208,12 +213,14 @@ class Lagrangian(object):
             else:
                 pp = np.zeros_like(sds)
             dLdB = -0.5*(sds - sdsds - pp + sds.T - sdsds.T - pp.T)
+            print "dLdB", dLdB
             
             if self.ifFrac: #TODO: abstract out constraint eventually
                 #dL/dP block
                 PB = np.dot(P,B)
                 BP = np.dot(B,P)
                 dLdP = 0.5*(PB + BP + PB.T + BP.T) 
+                print "dLdP", dLdP
         
             dLdD = dLdD.squeeze()
             dLdB = dLdB.squeeze()
@@ -225,9 +232,11 @@ class Lagrangian(object):
                 result.append(dLdP)
             for c in con:
                 result.append(c.self_gradient(D))
+                print "dLdMu", result[-1]
             
             #debug
             assert np.abs(con[0].self_gradient(D) - (con[0].C - np.trace(np.dot(S,D)))) < 1e-10
+            print "switching to beta"
         
         pivot = len(result)/2 
         a = result[0:pivot]
