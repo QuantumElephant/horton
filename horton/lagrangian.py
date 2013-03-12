@@ -110,11 +110,11 @@ class Lagrangian(object):
             
             print "evaluating gradient: " + str(i)
             
-            fdan_norm = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
+#            fdan_norm = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
 #            assert fdan_norm < 1e-4, fdan_norm
 #            fdan = self.sym_lin_grad_wrap(tmpFwd) - self.fdiff_hess_grad_grad(tmpFwd)
 #            fdan_norm = np.linalg.norm(fdan)
-            assert fdan_norm < 1e-4, fdan_norm
+#            assert fdan_norm < 1e-4, fdan_norm
 #            
             an = (anfn(tmpFwd) - anfn(tmpBack))/ (np.float64(2)*h)
 #            an = (self.fdiff_hess_grad_grad(tmpFwd) - self.fdiff_hess_grad_grad(tmpBack))/ (np.float64(2)*h)
@@ -147,10 +147,6 @@ class Lagrangian(object):
         return result
     
     def calc_grad(self, *args): #move to kwargs eventually
-#        [da, db, ba, bb, pa, pb] = args[0:6] #TODO: generalize me!
-#        La = args[6::2]#         mua, mub,L1a, L1b, L2a, L2b, L3a, L3b
-#        Lb = args[7::2]
-        
         alpha_args = list(args[::2]) #args == [da, db, ba, bb] possibly including [pa, pb] 
         beta_args = list(args[1::2])
         alpha_args.append(self.constraints[0])
@@ -183,9 +179,15 @@ class Lagrangian(object):
 #        print "alpha"
         for spin in (alpha_args, beta_args):
             if self.ifFrac:
-                [D,B,P,ls,con,fock] = spin
+                [D,B,P] = spin[0:3]
+                ls = spin[3:-2]
             else:
-                [D,B,ls,con,fock] = spin
+                [D,B] = spin[0:2]
+                ls = spin[2:-2]
+            fock = spin[-1]
+            con = spin[-2]
+            
+#            dLdD = 0
             dLdD = fock
 #            print "fock", dLdD
             
@@ -202,7 +204,7 @@ class Lagrangian(object):
             
             
             #debug
-            assert (np.abs(con[0].D_gradient(D,ls[0]) + ls*S) < 1e-10).all(), con[0].D_gradient(D,ls[0]) + ls*S
+#            assert (np.abs(con[0].D_gradient(D,ls[0]) + ls*S) < 1e-10).all(), con[0].D_gradient(D,ls[0]) + ls*S
         
             #dL/dB block
             sds = np.dot(np.dot(S,D),S)
@@ -235,7 +237,7 @@ class Lagrangian(object):
 #                print "dLdMu", result[-1]
             
             #debug
-            assert np.abs(con[0].self_gradient(D) - (con[0].C - np.trace(np.dot(S,D)))) < 1e-10
+#            assert np.abs(con[0].self_gradient(D) - (con[0].C - np.trace(np.dot(S,D)))) < 1e-10
 #            print "switching to beta"
         
         pivot = len(result)/2 
@@ -257,10 +259,6 @@ class Lagrangian(object):
         return result 
     
     def lagrangian_spin_frac(self, *args):
-#        [Da, Db, Ba, Bb, Pa, Pb] = args[0:6]
-#        La = args[6::2] #Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b
-#        Lb = args[7::2]
-#        print(La,Lb)
 
         args = self.symmetrize(*args)
 
@@ -281,15 +279,18 @@ class Lagrangian(object):
         
         for spin in (alpha_args, beta_args):
             if self.ifFrac:
-                [D,B,P,L,con] = spin
+                [D,B,P] = spin[0:3]
+                ls = spin[3:-1]
                 pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
             else:
-                [D,B,L,con] = spin
+                [D,B] = spin[0:2]
+                ls = spin[2:-1]
                 pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S))
+            con = spin[-1]
             
             result -= np.trace(pauli_test)
 #            result -= np.squeeze(Mu*(np.trace(np.dot(D,S)) - n))
-            for c,m in zip(con, L):
+            for c,m in zip(con, ls):
                 result += c.lagrange(D, m) 
             
         return result
@@ -501,3 +502,13 @@ class Lagrangian(object):
         result = self.UTmatToVec(*grad)
         
         return result
+    
+    def calc_occupations(self, x):
+        args = self.UTvecToMat(x)
+        
+        for key,i in enumerate((args[0], args[1])):
+            for c in self.constraints[key]:
+                ds = np.dot(i,self.S)
+                print np.trace(np.dot(ds,c.L))
+        
+        

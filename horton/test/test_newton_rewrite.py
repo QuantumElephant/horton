@@ -73,15 +73,6 @@ def promol_guess(sys, basis):
     
 
 def promol_h2o(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, N = None, N2 = None):
-#    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5; #STO-3G ONLY
-#    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
-    
-#    occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
-#    occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
-
-#    occ_a = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N=5; print "Using atomic constrained occ" #3-21G ONLY
-#    occ_b = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N2=5; print "Using atomic constrained occ" #3-21G ONLY
-
 #    occ_a = #TODO: add 6-31++G** occupations 
 
     assert occ_a.size == orb_a.shape[0] and occ_b.size == orb_b.shape[0]
@@ -167,8 +158,8 @@ def prep_D(*args):
 def test_H2O():
     solver = NewtonKrylov()
 #    
-#    basis = 'sto-3g'
-    basis = '3-21G'
+    basis = 'sto-3g'
+#    basis = '3-21G'
 #    basis = '6-31++G**'
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
@@ -182,18 +173,28 @@ def test_H2O():
 #    guess_hamiltonian_core(system)
 
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
-    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b)
+    
+    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5; #STO-3G ONLY
+    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=4 #STO-3G ONLY
+    
+#    occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
+#    occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
+
+#    occ_a = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N=5; print "Using atomic constrained occ" #3-21G ONLY
+#    occ_b = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N2=5; print "Using atomic constrained occ" #3-21G ONLY
+    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
 
     S = system.get_overlap()._array
 
 #DFT
-#    grid = BeckeMolGrid(system, random_rotate=False)
-#    
-#    libxc_term = LibXCLDATerm('x')
-#    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+    grid = BeckeMolGrid(system, random_rotate=False)
+    
+    libxc_term = LibXCLDATerm('c_vwn')
+    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+#    ham = Hamiltonian(system, [libxc_term], grid)
 
 #HF
-    ham = Hamiltonian(system, [HartreeFock()])
+#    ham = Hamiltonian(system, [HartreeFock()])
 
     L1_a0 = np.array(0.5)
     L1_b0 = np.array(0.5)
@@ -208,7 +209,9 @@ def test_H2O():
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0]
+#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_b0]
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+#    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub] #Integer occupations
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0]
 
     norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
@@ -229,13 +232,13 @@ def test_H2O():
         
         prev_idx += nbasis[key]
     
-    L1_a = Constraint(system, 4, L1) #WATER ONLY
-    L2_a = Constraint(system, 0, L2)
-    L3_a = Constraint(system, 0, L3)
+    L1_a = Constraint(system, 5, L1) #WATER ONLY
+    L2_a = Constraint(system, 1, L2)
+    L3_a = Constraint(system, 0.5, L3)
     
-    L1_b = Constraint(system, 4, L1) #WATER ONLY
-    L2_b = Constraint(system, 0, L2)
-    L3_b = Constraint(system, 0, L3)
+    L1_b = Constraint(system, 5, L1) #WATER ONLY
+    L2_b = Constraint(system, 1, L2)
+    L3_b = Constraint(system, 0.5, L3)
 
     shapes = []
     for i in args:
@@ -247,19 +250,18 @@ def test_H2O():
 #    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
 #    lg = Lagrangian(system, ham,N, N2, shapes, [[L1_a, L2_a, L3_a],[L1_b, L2_b, L3_b]])
 #    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a],[norm_b, L1_b, L2_b]])
+#    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a],[norm_b, L1_b, L2_b]])
     lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
 #    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a],[norm_b, L1_b]]) #O:4/4
-    
-#    a = np.load("full_xstar.npz")
-#    [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua,mub] = a["arr_0"]
     
 #    x0 = np.hstack(*args); lg.isUT = False; lg.full_offsets()
     x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
-#    lg.fdiff_hess_grad_x(x0)
+#    lg.callback_system(x0, None)
 
     x_star = solver.solve(lg, x0)
-#    lg.callback_system(x_star, None)
+    print "The Energy is " + str(ham.compute_energy())
+    lg.calc_occupations(x_star)
     
     if lg.isUT:
         print lg.UTvecToMat(x_star)
@@ -292,7 +294,7 @@ def test_H2O():
     
     plt.show()
     
-#test_H2O()
+test_H2O()
 
 #def test_UTconvert():
 #    basis = 'sto-3g' #CHANGE1
@@ -326,17 +328,18 @@ def test_H2O():
 #test_UTconvert()
 
 def Horton_H2O():
-    basis = '3-21G'
+    basis = 'STO-3G'
+#    basis = '3-21G'
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     guess_hamiltonian_core(system)
 #  DFT  
-#    grid = BeckeMolGrid(system, random_rotate=False)
-#    libxc_term = LibXCLDATerm('x')
-#    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+    grid = BeckeMolGrid(system, random_rotate=False)
+    libxc_term = LibXCLDATerm('x')
+    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
     
 #  HF
-    ham = Hamiltonian(system, [HartreeFock()])
+#    ham = Hamiltonian(system, [HartreeFock()])
     
     converged = converge_scf_oda(ham, max_iter=5000)
     
@@ -434,7 +437,7 @@ def DFT_STO3G():
 
     grid = BeckeMolGrid(system, random_rotate=False)
     
-    libxc_term = LibXCLDATerm('XC_TETER93')
+    libxc_term = LibXCLDATerm('x') #FIXME
     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
@@ -459,7 +462,7 @@ def DFT_STO3G():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -74.939072) < 1e-4
     
-DFT_STO3G()
+#DFT_STO3G()
 
 def DFT_321G():
     solver = NewtonKrylov()
