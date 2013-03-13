@@ -1,23 +1,30 @@
 import numpy as np
 import copy as cp
-import scipy.linalg.matfuncs as mat
 import horton
 import time
 import pylab
-import scipy.optimize as op
 
 #TODO: profile to figure out a quick way of evaluating this function.
 class Lagrangian(object):
-    def __init__(self,sys,ham,N, N2, shapes,constraints):
+    def __init__(self,sys,ham, ifHess, shapes,constraints,spinConstraints = None):
         self.lf = sys.lf
         self.S = self.toNumpy(sys.get_overlap())
         self.constraints = constraints
+        self.spinConstraints = spinConstraints
+        self.ifHess = ifHess
         
-        self.N = N
-        self.N2 = N2
-
+        if spinConstraints is not None:
+            lenSpinCon = len(spinConstraints)
+        else:
+            lenSpinCon = 0
+            
+        lenConA = len(constraints[0])
+        lenConB = len(constraints[1])
+        
+        
+        
         self.shapes = shapes
-        if len(shapes) - len(constraints[0]) - len(constraints[1]) == 6:
+        if len(shapes) - lenConA - lenConB - lenSpinCon == 6:
             self.ifFrac = True
             print "Fractional occupations enabled"
         else:
@@ -147,8 +154,14 @@ class Lagrangian(object):
         return result
     
     def calc_grad(self, *args): #move to kwargs eventually
-        alpha_args = list(args[::2]) #args == [da, db, ba, bb] possibly including [pa, pb] 
-        beta_args = list(args[1::2])
+        if self.spinConstraints is not None:
+                lenSpin = len(self.spinConstraints)
+        else:
+                lenSpin = 0
+        
+        alpha_args = list(args[:len(args)-lenSpin:2]) #args == [da, db, ba, bb] possibly including [pa, pb] 
+        beta_args = list(args[1:len(args)-lenSpin:2])
+        spinArgs = list(args[-lenSpin:])
         alpha_args.append(self.constraints[0])
         beta_args.append(self.constraints[1])
 
@@ -239,11 +252,17 @@ class Lagrangian(object):
             #debug
 #            assert np.abs(con[0].self_gradient(D) - (con[0].C - np.trace(np.dot(S,D)))) < 1e-10
 #            print "switching to beta"
-        
+                
         pivot = len(result)/2 
         a = result[0:pivot]
         b = result[pivot:]    
-        c = [j for i in zip(a,b) for j in i]    
+        c = [j for i in zip(a,b) for j in i]
+        
+        if self.spinConstraints is not None:
+            for i,l in zip(self.spinConstraints, spinArgs):
+                c[0] += (i.D_gradient(da,l))
+                c[1] += (i.D_gradient(db,l))
+                c.append(i.self_gradient(da + db))
         return c  
     
     def lagrange_x(self, x):
@@ -295,34 +314,34 @@ class Lagrangian(object):
             
         return result
     
-    def lagrangian_spin_frac_old(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b ):
-        S = self.S
-        N = self.N
-        N2 = self.N2
-        energy_spin = self.energy_spin
-        
-        Da = 0.5*(Da+Da.T)
-        Db = 0.5*(Db+Db.T)
-        Ba = 0.5*(Ba+Ba.T)
-        Bb = 0.5*(Bb+Bb.T)
-        Pa = 0.5*(Pa+Pa.T)
-        Pb = 0.5*(Pb+Pb.T)
-    
-        result = 0
-        result += energy_spin(Da, Db)
-        
-        for spin in [[Da,Ba,Pa,Mua,N,L1a, L2a, L3a], [Db,Bb,Pb,Mub,N2, L1b, L2b, L3b]]:
-            [D,B,P,Mu,n, L1, L2, L3] = spin
-            pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
-            result -= np.trace(pauli_test)
-            result -= np.squeeze(Mu*(np.trace(np.dot(D,S)) - n))
-            result -= np.squeeze(L1*(np.trace(np.dot(np.dot(D,S),self.constraints[0][1].L)) - n))
-            result -= np.squeeze(L2*(np.trace(np.dot(np.dot(D,S),self.constraints[0][2].L)) - n))
-            result -= np.squeeze(L3*(np.trace(np.dot(np.dot(D,S),self.constraints[0][3].L)) - n))
-#            for c,m in zip(constr, Mul):
-#                result += c.lagrange(D, m) #TODO: Remove dependency on Mu
-            
-        return result
+#    def lagrangian_spin_frac_old(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b ):
+#        S = self.S
+#        N = self.N
+#        N2 = self.N2
+#        energy_spin = self.energy_spin
+#        
+#        Da = 0.5*(Da+Da.T)
+#        Db = 0.5*(Db+Db.T)
+#        Ba = 0.5*(Ba+Ba.T)
+#        Bb = 0.5*(Bb+Bb.T)
+#        Pa = 0.5*(Pa+Pa.T)
+#        Pb = 0.5*(Pb+Pb.T)
+#    
+#        result = 0
+#        result += energy_spin(Da, Db)
+#        
+#        for spin in [[Da,Ba,Pa,Mua,N,L1a, L2a, L3a], [Db,Bb,Pb,Mub,N2, L1b, L2b, L3b]]:
+#            [D,B,P,Mu,n, L1, L2, L3] = spin
+#            pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
+#            result -= np.trace(pauli_test)
+#            result -= np.squeeze(Mu*(np.trace(np.dot(D,S)) - n))
+#            result -= np.squeeze(L1*(np.trace(np.dot(np.dot(D,S),self.constraints[0][1].L)) - n))
+#            result -= np.squeeze(L2*(np.trace(np.dot(np.dot(D,S),self.constraints[0][2].L)) - n))
+#            result -= np.squeeze(L3*(np.trace(np.dot(np.dot(D,S),self.constraints[0][3].L)) - n))
+##            for c,m in zip(constr, Mul):
+##                result += c.lagrange(D, m) #TODO: Remove dependency on Mu
+#            
+#        return result
     
     def energy_spin(self, Da, Db):
         self.sys.wfn.invalidate()
@@ -358,18 +377,20 @@ class Lagrangian(object):
 ##            print "e beta:", self.e_hist_b[-1]
 #            
         if self.logNextIter: #THIS GOES SECOND
-#            hess = self.fdiff_hess_grad_x(x)
-#            np.savetxt("jacobian"+str(self.nIter), hess)
-#            print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
+            if self.ifHess:
+                hess = self.fdiff_hess_grad_x(x)
+                np.savetxt("jacobian"+str(self.nIter), hess)
+                print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
             
             self.logNextIter=False
             self.t2 = time.time()
             print "Iter {:d} took {:0.3e} s".format(self.nIter, self.t2-self.t1)
 
         if self.nIter==0 or self.nIter%1500==0 : #THIS GOES FIRST
-#            hess = self.fdiff_hess_grad_x(x)
-#            np.savetxt("jacobian"+str(self.nIter), hess)
-#            print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
+            if self.ifHess:
+                hess = self.fdiff_hess_grad_x(x)
+                np.savetxt("jacobian"+str(self.nIter), hess)
+                print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
 
             self.logNextIter = True
             self.t1 = time.time()
@@ -439,7 +460,7 @@ class Lagrangian(object):
             
             shortDim = np.min(i.shape)
             symerror = np.abs(i[:,:shortDim] - i.T[:shortDim,:]) 
-            assert (symerror < 1e-8).all(), (np.vstack(np.where(symerror > 1e-8)).T, symerror, self.plot_mat(symerror > 1e-8))
+            assert (symerror < 1e-8).all(), (np.vstack(np.where(symerror > 1e-8)).T, symerror,np.sort(symerror, None)[-20:], self.plot_mat(symerror > 1e-8))
     
     def plot_mat(self, mat):
         pylab.matshow(mat)

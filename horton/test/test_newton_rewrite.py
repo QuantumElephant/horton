@@ -155,11 +155,11 @@ def prep_D(*args):
         result.append(2*i[ut_idx])
     return np.hstack(result)
 
-def test_H2O():
+def calc_H2O():
     solver = NewtonKrylov()
 #    
-    basis = 'sto-3g'
-#    basis = '3-21G'
+#    basis = 'sto-3g'
+    basis = '3-21G'
 #    basis = '6-31++G**'
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
@@ -174,14 +174,14 @@ def test_H2O():
 
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
     
-    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5; #STO-3G ONLY
-    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=4 #STO-3G ONLY
+#    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5; #STO-3G ONLY
+#    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
     
 #    occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
 #    occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
 
-#    occ_a = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N=5; print "Using atomic constrained occ" #3-21G ONLY
-#    occ_b = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N2=5; print "Using atomic constrained occ" #3-21G ONLY
+    occ_a = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N=5; print "Using atomic constrained occ" #3-21G ONLY
+    occ_b = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N2=5; print "Using atomic constrained occ" #3-21G ONLY
     [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
 
     S = system.get_overlap()._array
@@ -210,7 +210,9 @@ def test_H2O():
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_b0]
-    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0]
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L2_a0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub] #Integer occupations
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0]
 
@@ -232,12 +234,12 @@ def test_H2O():
         
         prev_idx += nbasis[key]
     
-    L1_a = Constraint(system, 5, L1) #WATER ONLY
+    L1_a = Constraint(system, 8, L1) #WATER ONLY
     L2_a = Constraint(system, 1, L2)
     L3_a = Constraint(system, 0.5, L3)
     
-    L1_b = Constraint(system, 5, L1) #WATER ONLY
-    L2_b = Constraint(system, 1, L2)
+    L1_b = Constraint(system, 4, L1) #WATER ONLY
+    L2_b = Constraint(system, .5, L2)
     L3_b = Constraint(system, 0.5, L3)
 
     shapes = []
@@ -247,12 +249,14 @@ def test_H2O():
             continue
         shapes.append(i.shape[0])
 
-#    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
-#    lg = Lagrangian(system, ham,N, N2, shapes, [[L1_a, L2_a, L3_a],[L1_b, L2_b, L3_b]])
-#    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a, L2_a],[norm_b, L1_b, L2_b]])
-#    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a],[norm_b, L1_b, L2_b]])
-    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
-#    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a, L1_a],[norm_b, L1_b]]) #O:4/4
+#    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
+#    lg = Lagrangian(system, ham,True, shapes, [[L1_a, L2_a, L3_a],[L1_b, L2_b, L3_b]])
+#    lg = Lagrangian(system, ham, True, shapes, [[norm_a, L1_a, L2_a],[norm_b, L1_b, L2_b]])
+#    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b, L2_b]])
+#    lg = Lagrangian(system, ham,True, shapes, [[norm_a],[norm_b]])
+#    lg = Lagrangian(system, ham,False, shapes, [[norm_a, L1_a],[norm_b, L1_b]], [L2_a])
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]], [L1_a,L2_a])
+#    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b]]) #O:4/4
     
 #    x0 = np.hstack(*args); lg.isUT = False; lg.full_offsets()
     x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
@@ -294,7 +298,7 @@ def test_H2O():
     
     plt.show()
     
-test_H2O()
+#calc_H2O()
 
 #def test_UTconvert():
 #    basis = 'sto-3g' #CHANGE1
@@ -335,7 +339,7 @@ def Horton_H2O():
     guess_hamiltonian_core(system)
 #  DFT  
     grid = BeckeMolGrid(system, random_rotate=False)
-    libxc_term = LibXCLDATerm('x')
+    libxc_term = LibXCLDATerm('c_vwn')
     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
     
 #  HF
@@ -345,7 +349,7 @@ def Horton_H2O():
     
 #Horton_H2O()
 
-def HF_STO3G():
+def test_HF_STO3G():
     solver = NewtonKrylov()
 #    
     basis = 'sto-3g'
@@ -372,19 +376,19 @@ def HF_STO3G():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
     x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
     x_star = solver.solve(lg, x0)
     
-    print "Actual E:" + str(-74.965901)
+    print "Actual E:" + str(-74.965901) #NIST
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
     
-#HF_STO3G()
+test_HF_STO3G()
 
-def HF_321G():
+def test_HF_321G():
     solver = NewtonKrylov()
 #    
     basis = '3-21G'
@@ -411,19 +415,19 @@ def HF_321G():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
     x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
     x_star = solver.solve(lg, x0)
     
-    print "Actual E:" + str(-75.585960)
+    print "Actual E:" + str(-75.583747447860) #NWCHEM
     print "Computed E:" + str(ham.compute_energy())
-    assert np.abs(ham.compute_energy() - -75.585960) < 1e-4
+    assert np.abs(ham.compute_energy() - -75.583747447860) < 1e-4 #KNOWN TO FAIL
     
-#HF_321G()
+#test_HF_321G()
 
-def DFT_STO3G():
+def test_DFT_STO3G():
     solver = NewtonKrylov()
 #    
     basis = 'sto-3g'
@@ -437,7 +441,7 @@ def DFT_STO3G():
 
     grid = BeckeMolGrid(system, random_rotate=False)
     
-    libxc_term = LibXCLDATerm('x') #FIXME
+    libxc_term = LibXCLDATerm('c_vwn') #vwn_5
     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
@@ -452,19 +456,19 @@ def DFT_STO3G():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
     x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
     x_star = solver.solve(lg, x0)
     
-    print "Actual E:" + str(-74.939072)
+    print "Actual E:" + str(-66.634688718437) #NWCHEM
     print "Computed E:" + str(ham.compute_energy())
-    assert np.abs(ham.compute_energy() - -74.939072) < 1e-4
+    assert np.abs(ham.compute_energy() - -66.634688718437) < 1e-4
     
-#DFT_STO3G()
+test_DFT_STO3G()
 
-def DFT_321G():
+def test_DFT_321G():
     solver = NewtonKrylov()
 #    
     basis = '3-21G'
@@ -478,7 +482,7 @@ def DFT_321G():
 
     grid = BeckeMolGrid(system, random_rotate=False)
     
-    libxc_term = LibXCLDATerm('x')
+    libxc_term = LibXCLDATerm('c_vwn') #vwn_5
     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
@@ -493,19 +497,19 @@ def DFT_321G():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
     x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
     x_star = solver.solve(lg, x0)
     
-    print "Actual E:" + str(-75.585960)
+    print "Actual E:" + str(-67.521923845983) #NWCHEM
     print "Computed E:" + str(ham.compute_energy())
-    assert np.abs(ham.compute_energy() - -75.585960) < 1e-4
+    assert np.abs(ham.compute_energy() - -67.521923845983) < 1e-4 #KNOWN TO FAIL
     
-#DFT_321G()
+#test_DFT_321G()
 
-def HF_STO3G_Frac():
+def test_HF_STO3G_Frac():
     solver = NewtonKrylov()
 #    
     basis = 'sto-3g'
@@ -536,7 +540,7 @@ def HF_STO3G_Frac():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
     x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -544,11 +548,11 @@ def HF_STO3G_Frac():
     
     print "Actual E:" + str(-74.965901)
     print "Computed E:" + str(ham.compute_energy())
-    assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
+    assert np.abs(ham.compute_energy() - -74.965901) < 1e-4 #KNOWN TO FAIL -74.5638326142
     
-#HF_STO3G_Frac()
+#test_HF_STO3G_Frac()
 
-def HF_321G_Frac():
+def test_HF_321G_Frac():
     solver = NewtonKrylov()
     
     basis = '3-21G'
@@ -579,7 +583,7 @@ def HF_321G_Frac():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,N, N2, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
     x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -587,6 +591,96 @@ def HF_321G_Frac():
     
     print "Actual E:" + str(-75.0812082641)
     print "Computed E:" + str(ham.compute_energy())
-    assert np.abs(ham.compute_energy() - -75.0812082641) < 1e-10
+    assert np.abs(ham.compute_energy() - -75.0812082641) < 1e-10 #KNOWN TO FAIL -75.3159038895
     
-#HF_321G_Frac()
+#test_HF_321G_Frac()
+
+def test_DFT_STO3G_Frac():
+    solver = NewtonKrylov()
+#    
+    basis = 'sto-3g'
+    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
+    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
+    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+
+    grid = BeckeMolGrid(system, random_rotate=False)
+    
+    libxc_term = LibXCLDATerm('c_vwn') #vwn_5
+    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+
+    S = system.get_overlap()._array
+    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
+    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+
+    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    
+    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    x_star = solver.solve(lg, x0)
+    
+    print "Actual E:" + str(-66.634688718437) #NWCHEM
+    print "Computed E:" + str(ham.compute_energy())
+    assert np.abs(ham.compute_energy() - -66.634688718437) < 1e-4
+    
+test_DFT_STO3G_Frac()
+
+def test_DFT_321G_Frac():
+    solver = NewtonKrylov()
+#    
+    basis = '3-21G'
+    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
+    occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
+    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+
+    grid = BeckeMolGrid(system, random_rotate=False)
+    
+    libxc_term = LibXCLDATerm('c_vwn') #vwn_5
+    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+
+    S = system.get_overlap()._array
+    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
+    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+
+    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    
+    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    x_star = solver.solve(lg, x0)
+    
+    print "Actual E:" + str(-67.521923845983) #NWCHEM
+    print "Computed E:" + str(ham.compute_energy())
+    assert np.abs(ham.compute_energy() - -67.521923845983) < 1e-4 #KNOWN TO FAIL
+    
+test_DFT_321G_Frac()
