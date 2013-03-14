@@ -107,8 +107,8 @@ class Lagrangian(object):
         
         result = []
 
-#        for i in np.arange(20, x.size):
-        for i in np.arange(x.size):
+        for i in np.arange(543, x.size):
+#        for i in np.arange(x.size):
             tmpFwd = cp.deepcopy(x)
             tmpBack = cp.deepcopy(x)
             
@@ -119,9 +119,9 @@ class Lagrangian(object):
             
 #            fdan_norm = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
 #            assert fdan_norm < 1e-4, fdan_norm
-#            fdan = self.sym_lin_grad_wrap(tmpFwd) - self.fdiff_hess_grad_grad(tmpFwd)
-#            fdan_norm = np.linalg.norm(fdan)
-#            assert fdan_norm < 1e-4, fdan_norm
+            fdan = self.sym_lin_grad_wrap(tmpFwd) - self.fdiff_hess_grad_grad(tmpFwd)
+            fdan_norm = np.linalg.norm(fdan)
+            assert fdan_norm < 1e-4, fdan_norm
 #            
             an = (anfn(tmpFwd) - anfn(tmpBack))/ (np.float64(2)*h)
 #            an = (self.fdiff_hess_grad_grad(tmpFwd) - self.fdiff_hess_grad_grad(tmpBack))/ (np.float64(2)*h)
@@ -278,11 +278,16 @@ class Lagrangian(object):
         return result 
     
     def lagrangian_spin_frac(self, *args):
-
         args = self.symmetrize(*args)
 
-        alpha_args = list(args[::2])
-        beta_args = list(args[1::2])
+        if self.spinConstraints is not None:
+                lenSpin = len(self.spinConstraints)
+        else:
+                lenSpin = 0
+        
+        alpha_args = list(args[:len(args)-lenSpin:2]) #args == [da, db, ba, bb] possibly including [pa, pb] 
+        beta_args = list(args[1:len(args)-lenSpin:2])
+        spinArgs = list(args[-lenSpin:])
         
         alpha_args.append(self.constraints[0])
         beta_args.append(self.constraints[1])
@@ -312,6 +317,9 @@ class Lagrangian(object):
             for c,m in zip(con, ls):
                 result += c.lagrange(D, m) 
             
+#        if self.spinConstraints is not None:
+#            for c,m in zip(self.spinConstraints, spinArgs):
+#                result += c.lagrange(Da+Db, m)
         return result
     
 #    def lagrangian_spin_frac_old(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b ):

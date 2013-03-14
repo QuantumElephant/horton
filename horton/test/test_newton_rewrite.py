@@ -187,14 +187,13 @@ def calc_H2O():
     S = system.get_overlap()._array
 
 #DFT
-    grid = BeckeMolGrid(system, random_rotate=False)
-    
-    libxc_term = LibXCLDATerm('c_vwn')
-    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
-#    ham = Hamiltonian(system, [libxc_term], grid)
+#    grid = BeckeMolGrid(system, random_rotate=False)
+#    
+#    libxc_term = LibXCLDATerm('c_vwn')
+#    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
 
 #HF
-#    ham = Hamiltonian(system, [HartreeFock()])
+    ham = Hamiltonian(system, [HartreeFock()])
 
     L1_a0 = np.array(0.5)
     L1_b0 = np.array(0.5)
@@ -210,14 +209,14 @@ def calc_H2O():
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_b0]
-#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0]
-    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L2_a0]
+#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L2_a0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub] #Integer occupations
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     L1 = np.eye(dm_a.shape[0]);
     L2 = np.eye(dm_a.shape[0]);
@@ -234,13 +233,13 @@ def calc_H2O():
         
         prev_idx += nbasis[key]
     
-    L1_a = Constraint(system, 8, L1) #WATER ONLY
-    L2_a = Constraint(system, 1, L2)
-    L3_a = Constraint(system, 0.5, L3)
+    L1_a = LinearConstraint(system, 8, L1) #WATER ONLY
+    L2_a = LinearConstraint(system, 1, L2)
+    L3_a = LinearConstraint(system, 0.5, L3)
     
-    L1_b = Constraint(system, 4, L1) #WATER ONLY
-    L2_b = Constraint(system, .5, L2)
-    L3_b = Constraint(system, 0.5, L3)
+    L1_b = LinearConstraint(system, 4, L1) #WATER ONLY
+    L2_b = LinearConstraint(system, .5, L2)
+    L3_b = LinearConstraint(system, 0.5, L3)
 
     shapes = []
     for i in args:
@@ -253,9 +252,9 @@ def calc_H2O():
 #    lg = Lagrangian(system, ham,True, shapes, [[L1_a, L2_a, L3_a],[L1_b, L2_b, L3_b]])
 #    lg = Lagrangian(system, ham, True, shapes, [[norm_a, L1_a, L2_a],[norm_b, L1_b, L2_b]])
 #    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b, L2_b]])
-#    lg = Lagrangian(system, ham,True, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,True, shapes, [[norm_a],[norm_b]])
 #    lg = Lagrangian(system, ham,False, shapes, [[norm_a, L1_a],[norm_b, L1_b]], [L2_a])
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]], [L1_a,L2_a])
+#    lg = Lagrangian(system, ham,True, shapes, [[norm_a],[norm_b]], [L1_a,L2_a])
 #    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b]]) #O:4/4
     
 #    x0 = np.hstack(*args); lg.isUT = False; lg.full_offsets()
@@ -298,7 +297,7 @@ def calc_H2O():
     
     plt.show()
     
-#calc_H2O()
+calc_H2O()
 
 #def test_UTconvert():
 #    basis = 'sto-3g' #CHANGE1
@@ -366,8 +365,8 @@ def test_HF_STO3G():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     shapes = []
     for i in args:
@@ -386,7 +385,7 @@ def test_HF_STO3G():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
     
-test_HF_STO3G()
+#test_HF_STO3G()
 
 def test_HF_321G():
     solver = NewtonKrylov()
@@ -405,8 +404,8 @@ def test_HF_321G():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     shapes = []
     for i in args:
@@ -446,8 +445,8 @@ def test_DFT_STO3G():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     shapes = []
     for i in args:
@@ -466,7 +465,7 @@ def test_DFT_STO3G():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -66.634688718437) < 1e-4
     
-test_DFT_STO3G()
+#test_DFT_STO3G()
 
 def test_DFT_321G():
     solver = NewtonKrylov()
@@ -487,8 +486,8 @@ def test_DFT_321G():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     shapes = []
     for i in args:
@@ -530,8 +529,8 @@ def test_HF_STO3G_Frac():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     shapes = []
     for i in args:
@@ -573,8 +572,8 @@ def test_HF_321G_Frac():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     shapes = []
     for i in args:
@@ -618,8 +617,8 @@ def test_DFT_STO3G_Frac():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     shapes = []
     for i in args:
@@ -638,7 +637,7 @@ def test_DFT_STO3G_Frac():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -66.634688718437) < 1e-4
     
-test_DFT_STO3G_Frac()
+#test_DFT_STO3G_Frac()
 
 def test_DFT_321G_Frac():
     solver = NewtonKrylov()
@@ -663,8 +662,8 @@ def test_DFT_321G_Frac():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     shapes = []
     for i in args:
@@ -683,4 +682,4 @@ def test_DFT_321G_Frac():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -67.521923845983) < 1e-4 #KNOWN TO FAIL
     
-test_DFT_321G_Frac()
+#test_DFT_321G_Frac()

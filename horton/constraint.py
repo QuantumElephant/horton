@@ -26,19 +26,51 @@ class Constraint(object):
         self.sys = sys
         self.S = sys.get_overlap()._array #don't have lg.toNumpy() yet.
         self.C = C
-        self.L = L
+        self.L = L #a list or a single element
+        
+    def lagrange(self,D, Mul):
+        raise NotImplementedError
+    def self_gradient(self,D):
+        raise NotImplementedError
+    def D_gradient(self, D, Mul):
+        raise NotImplementedError
+        
+class LinearConstraint(Constraint):
     def lagrange(self, D, Mul):
-        P = np.dot(D,self.S)
+        P = np.dot(self.S,D)
         Mul = Mul.squeeze() #TODO: remove me
         return -Mul*(np.dot(self.L.ravel(), P.ravel()) - self.C)
     def self_gradient(self, D):
         P = np.dot(self.S,D)
-        return self.C - np.dot(P.ravel(), self.L.ravel())
+        return self.C - np.dot(P.ravel(), self.L.ravel()) #Breaks compatibility with pre-constraint rewrite code. Original form below.
 #        return self.C - np.trace(np.dot(P, self.L))
     def D_gradient(self, D, Mul):
         Mul = Mul.squeeze()
         SL = np.dot(self.S, self.L)
         
         return -Mul*0.5*(SL + SL.T) #Should this always be negative?
+    
+class QuadraticConstraint(Constraint):
+    def __init__(self, sys, C, L):
+        assert len(L) == 2
+        super(Constraint, self).__init__(sys, C, L)
+    def lagrange(self, D, Mul):
+        P = np.dot(self.S,D)
+        LaSD = np.dot(self.L[0], P)
+        LbSD = np.dot(self.L[1], P)
+        Mul = Mul.squeeze() #TODO: remove me
         
+        return -Mul*(np.dot(LaSD.ravel(), LbSD.ravel()) - self.C)
+    def self_gradient(self, D):
+        P = np.dot(self.S,D)
+        LaSD = np.dot(self.L[0], P)
+        LbSD = np.dot(self.L[1], P)
         
+        return self.C - np.dot(LaSD.ravel(), LbSD.ravel()) #Breaks compatibility with pre-constraint rewrite code. Original form below.
+#        return self.C - np.trace(np.dot(P, self.L)) 
+    def D_gradient(self, D, Mul):
+        Mul = Mul.squeeze()
+        P = np.dot(self.S, D)
+        LSDLS = np.dot(np.dot(np.dot(self.L[0],P),self.L[1]),self.S)
+        
+        return -Mul*(LSDLS + LSDLS.T) #Should this always be negative?
