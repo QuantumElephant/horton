@@ -25,6 +25,7 @@ class Constraint(object):
     def __init__(self, sys, C, L):
         self.sys = sys
         self.S = sys.get_overlap()._array #don't have lg.toNumpy() yet.
+#        self.S = np.eye(7)
         self.C = C
         self.L = L #a list or a single element
         
@@ -53,24 +54,53 @@ class LinearConstraint(Constraint):
 class QuadraticConstraint(Constraint):
     def __init__(self, sys, C, L):
         assert len(L) == 2
-        super(Constraint, self).__init__(sys, C, L)
+        super(QuadraticConstraint, self).__init__(sys, C, L)
     def lagrange(self, D, Mul):
         P = np.dot(self.S,D)
         LaSD = np.dot(self.L[0], P)
         LbSD = np.dot(self.L[1], P)
         Mul = Mul.squeeze() #TODO: remove me
         
-        return -Mul*(np.dot(LaSD.ravel(), LbSD.ravel()) - self.C)
+        assert np.abs(np.dot(LaSD.ravel(), LbSD.T.ravel()) - np.dot(LbSD.ravel(), LaSD.T.ravel())) < 1e-8, (np.dot(LaSD.ravel(), LbSD.T.ravel()),np.dot(LbSD.ravel(), LaSD.T.ravel()))
+        
+#        return -Mul*(np.dot(LaSD.ravel(), LbSD.T.ravel()) - self.C) #need the transpose to sum properly!
+        return -Mul*(np.trace(np.dot(LaSD,LbSD)) - self.C)
     def self_gradient(self, D):
         P = np.dot(self.S,D)
         LaSD = np.dot(self.L[0], P)
         LbSD = np.dot(self.L[1], P)
         
-        return self.C - np.dot(LaSD.ravel(), LbSD.ravel()) #Breaks compatibility with pre-constraint rewrite code. Original form below.
+        return self.C - np.dot(LaSD.ravel(), LbSD.T.ravel()) #need the transpose to sum properly!
 #        return self.C - np.trace(np.dot(P, self.L)) 
     def D_gradient(self, D, Mul):
         Mul = Mul.squeeze()
         P = np.dot(self.S, D)
-        LSDLS = np.dot(np.dot(np.dot(self.L[0],P),self.L[1]),self.S)
+        L0SDL1S = np.dot(np.dot(np.dot(self.L[0],P),self.L[1]),self.S)
+        L1SDL0S = np.dot(np.dot(np.dot(self.L[1],P),self.L[0]),self.S)
         
-        return -Mul*(LSDLS + LSDLS.T) #Should this always be negative?
+        result = -Mul*0.5*(L1SDL0S + L1SDL0S.T + L0SDL1S + L0SDL1S.T)
+#        result = -Mul*(L1SDL0S + L0SDL1S).T
+#        assert (np.abs(result - result.T) < 1e-8).all()
+        
+        return result #Should this always be negative?
+    
+    def combGrad(self, x): #testing
+        Mul = x[-1]
+        D = x[:-1].reshape(7,7)
+        
+        dLdD = self.D_gradient(D, Mul)
+#        assert (np.abs(dLdD - dLdD.T) < 1e-8).all()
+        
+        result = [dLdD.ravel(), self.self_gradient(D)]
+        result = np.hstack(result)
+        
+        return result
+    
+    def reshapeX(self,x):
+        Mul = x[-1]
+        D = x[:-1].reshape(7,7)
+        
+        result = self.lagrange(D, Mul)
+#        print result
+        
+        return result

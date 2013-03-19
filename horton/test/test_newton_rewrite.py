@@ -158,8 +158,8 @@ def prep_D(*args):
 def calc_H2O():
     solver = NewtonKrylov()
 #    
-#    basis = 'sto-3g'
-    basis = '3-21G'
+    basis = 'sto-3g'
+#    basis = '3-21G'
 #    basis = '6-31++G**'
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
@@ -174,14 +174,14 @@ def calc_H2O():
 
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
     
-#    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5; #STO-3G ONLY
-#    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
+    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5; #STO-3G ONLY
+    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
     
 #    occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
 #    occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
 
-    occ_a = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N=5; print "Using atomic constrained occ" #3-21G ONLY
-    occ_b = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N2=5; print "Using atomic constrained occ" #3-21G ONLY
+#    occ_a = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N=5; print "Using atomic constrained occ" #3-21G ONLY
+#    occ_b = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N2=5; print "Using atomic constrained occ" #3-21G ONLY
     [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
 
     S = system.get_overlap()._array
@@ -201,17 +201,18 @@ def calc_H2O():
     L2_b0 = np.array(0.5)
     L3_a0 = np.array(0.5)
     L3_b0 = np.array(0.5)
+    Q1_0 = np.array(1)
 
     pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
     pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
 
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
-#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0]
+#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, Q1_0, Q1_0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_b0]
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0]
-#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L2_a0]
+#    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L2_a0, Q1_0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub] #Integer occupations
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0]
 
@@ -233,13 +234,20 @@ def calc_H2O():
         
         prev_idx += nbasis[key]
     
-    L1_a = LinearConstraint(system, 8, L1) #WATER ONLY
+    L1_a = LinearConstraint(system, 4, L1) #WATER ONLY
     L2_a = LinearConstraint(system, 1, L2)
     L3_a = LinearConstraint(system, 0.5, L3)
     
     L1_b = LinearConstraint(system, 4, L1) #WATER ONLY
     L2_b = LinearConstraint(system, .5, L2)
     L3_b = LinearConstraint(system, 0.5, L3)
+    
+    Q1 = QuadraticConstraint(system, 0, [L2, L3])
+#    Q2 = QuadraticConstraint(system, 4, L1, L2)
+    
+    
+    
+    
 
     shapes = []
     for i in args:
@@ -250,12 +258,26 @@ def calc_H2O():
 
 #    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
 #    lg = Lagrangian(system, ham,True, shapes, [[L1_a, L2_a, L3_a],[L1_b, L2_b, L3_b]])
-#    lg = Lagrangian(system, ham, True, shapes, [[norm_a, L1_a, L2_a],[norm_b, L1_b, L2_b]])
+#    lg = Lagrangian(system, ham, True, shapes, [[norm_a, L1_a, Q1],[norm_b, L1_b, Q1]])
 #    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b, L2_b]])
     lg = Lagrangian(system, ham,True, shapes, [[norm_a],[norm_b]])
-#    lg = Lagrangian(system, ham,False, shapes, [[norm_a, L1_a],[norm_b, L1_b]], [L2_a])
-#    lg = Lagrangian(system, ham,True, shapes, [[norm_a],[norm_b]], [L1_a,L2_a])
+#    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b]], [L2_a])
+#    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]], [L1_a,L2_a,Q1])
 #    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b]]) #O:4/4
+    
+#    norm = op.check_grad(Q1.reshapeX, Q1.combGrad, np.hstack([pro_da.ravel(),Q1_0]))
+
+#    fd = lg.fdiff_hess_grad_grad(np.hstack([pro_da.ravel(),Q1_0]),Q1.reshapeX)
+#    fdd = fd[:-1].reshape(7,7)
+##    assert (np.abs(fdd - fdd.T) < 1e-8).all()
+#    fdd = 0.5*(fdd + fdd.T)
+#    fd[:-1] = fdd.ravel()
+#    
+#    an = Q1.combGrad(np.hstack([pro_da.ravel(),Q1_0]))
+#    fdan =  fd - an
+#    fdan_norm = np.linalg.norm(fdan)
+#    assert fdan_norm < 1e-4, (fdan_norm, fd[np.abs(fd-an)>1e-5], an[np.abs(fd-an)>1e-5],[np.abs(fd-an)>1e-5])
+#    print norm
     
 #    x0 = np.hstack(*args); lg.isUT = False; lg.full_offsets()
     x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()

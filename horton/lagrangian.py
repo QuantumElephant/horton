@@ -107,8 +107,8 @@ class Lagrangian(object):
         
         result = []
 
-        for i in np.arange(543, x.size):
-#        for i in np.arange(x.size):
+#        for i in np.arange(540, x.size):
+        for i in np.arange(x.size):
             tmpFwd = cp.deepcopy(x)
             tmpBack = cp.deepcopy(x)
             
@@ -121,7 +121,7 @@ class Lagrangian(object):
 #            assert fdan_norm < 1e-4, fdan_norm
             fdan = self.sym_lin_grad_wrap(tmpFwd) - self.fdiff_hess_grad_grad(tmpFwd)
             fdan_norm = np.linalg.norm(fdan)
-            assert fdan_norm < 1e-4, fdan_norm
+            assert fdan_norm < 1e-4, (fdan_norm, fdan)
 #            
             an = (anfn(tmpFwd) - anfn(tmpBack))/ (np.float64(2)*h)
 #            an = (self.fdiff_hess_grad_grad(tmpFwd) - self.fdiff_hess_grad_grad(tmpBack))/ (np.float64(2)*h)
@@ -132,9 +132,9 @@ class Lagrangian(object):
         self.check_sym(result)
         return result
     
-    def fdiff_hess_grad_grad(self, x):
+    def fdiff_hess_grad_grad(self, x, fn=None):
         h = 1e-5
-        fn = self.lagrange_x
+        fn = fn or self.lagrange_x
         
         result = []
         
@@ -151,6 +151,15 @@ class Lagrangian(object):
             result.append((fn(tmpFwdMat) - fn(tmpBackMat)) / (np.float64(2)*h))
 
         result = np.hstack(result)
+        
+        #check sym on D
+#        Da = result[0:49].reshape(7,7)
+#        Db = result[49:98].reshape(7,7)
+##        Ba = result[98:147].reshape(7,7)
+#        result[0:49] = 0.5*(Da+Da.T).ravel()
+#        result[49:98] = 0.5*(Db+Db.T).ravel()
+#        self.check_sym(Da,Db)
+        
         return result
     
     def calc_grad(self, *args): #move to kwargs eventually
@@ -317,9 +326,9 @@ class Lagrangian(object):
             for c,m in zip(con, ls):
                 result += c.lagrange(D, m) 
             
-#        if self.spinConstraints is not None:
-#            for c,m in zip(self.spinConstraints, spinArgs):
-#                result += c.lagrange(Da+Db, m)
+        if self.spinConstraints is not None:
+            for c,m in zip(self.spinConstraints, spinArgs):
+                result += c.lagrange(Da+Db, m)
         return result
     
 #    def lagrangian_spin_frac_old(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b ):
@@ -467,6 +476,8 @@ class Lagrangian(object):
                 continue
             
             shortDim = np.min(i.shape)
+            if shortDim != np.max(i.shape):
+                print "truncating matrix for plotting"
             symerror = np.abs(i[:,:shortDim] - i.T[:shortDim,:]) 
             assert (symerror < 1e-8).all(), (np.vstack(np.where(symerror > 1e-8)).T, symerror,np.sort(symerror, None)[-20:], self.plot_mat(symerror > 1e-8))
     
@@ -535,9 +546,11 @@ class Lagrangian(object):
     def calc_occupations(self, x):
         args = self.UTvecToMat(x)
         
-        for key,i in enumerate((args[0], args[1])):
-            for c in self.constraints[key]:
-                ds = np.dot(i,self.S)
-                print np.trace(np.dot(ds,c.L))
+        for i in (args[0], args[1]):
+            ds = np.dot(i,self.S)
+            print np.diag(ds)
+#            for c in self.constraints[key]:
+#                ds = np.dot(i,self.S)
+#                print np.trace(np.dot(ds,c.L))
         
         
