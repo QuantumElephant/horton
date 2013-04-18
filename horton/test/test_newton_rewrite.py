@@ -6,158 +6,8 @@ import matplotlib.pyplot as plt
 
 np.set_printoptions(threshold = 2000)
 
-#def _lg_init(sys, ham, N,  N2, x0_sample, ee_rep=None):
-#    lf = sys._lf
-#    overlap = sys.get_overlap()
-#    lg = lagrangian(lf, overlap, N, N2, x0_sample, sys, ham) # TODO: check normalization
-#    return lf, lg
-
-def sqrtm(A):
-    result = np.zeros_like(A)
-    eigvs,eigvc = np.linalg.eigh(A)
-    for i in np.arange(len(eigvs)):
-        if eigvs[i] > 0:
-            result += np.sqrt(eigvs[i])*np.outer(eigvc[i], eigvc[i])
-    
-    return result
-
-def promol_guess(sys, basis):
-    orb_alpha = []
-    orb_beta = []
-    occ_alpha = []
-    occ_beta = []
-    e_alpha = []
-    e_beta = []
-    nbasis = []
-    
-    for i in np.sort(sys.numbers)[::-1]:
-        atom_sys = System(np.zeros((1,3), float), np.array([i]), obasis=basis) #hacky
-        if i > 1:
-            atom_sys.init_wfn(charge=0, mult=3, restricted=False)
-        else:
-            atom_sys.init_wfn(restricted=False)        
-
-        nbasis.append(atom_sys.wfn.nbasis)
-        guess_hamiltonian_core(atom_sys)
-
-#DFT
-#        grid = BeckeMolGrid(system, random_rotate=False)
-#        
-#        libxc_term = LibXCLDATerm('x')
-#        ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
-
-#HF
-        ham = Hamiltonian(atom_sys, [HartreeFock()])
-        
-        converge_scf_oda(ham)
-        
-        orb_alpha.append(atom_sys.wfn.exp_alpha._coeffs)
-        orb_beta.append(atom_sys.wfn.exp_beta._coeffs)
-        
-        occ_alpha.append(atom_sys.wfn.exp_alpha.occupations)
-        occ_beta.append(atom_sys.wfn.exp_beta.occupations)
-        
-        e_alpha.append(atom_sys.wfn.exp_alpha.energies)
-        e_beta.append(atom_sys.wfn.exp_beta.energies)
-        
-    orb_alpha = scp.linalg.block_diag(*orb_alpha)
-    orb_beta = scp.linalg.block_diag(*orb_beta)
-    
-    occ_alpha = np.hstack(occ_alpha)
-    occ_beta = np.hstack(occ_beta)
-
-    e_alpha = np.hstack(e_alpha)
-    e_beta = np.hstack(e_beta)
-    
-    return orb_alpha, orb_beta, occ_alpha, occ_beta, e_alpha, e_beta, nbasis
-    
-
-def promol_h2o(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, N = None, N2 = None):
-#    occ_a = #TODO: add 6-31++G** occupations 
-
-    assert occ_a.size == orb_a.shape[0] and occ_b.size == orb_b.shape[0]
-
-    if N is None or N2 is None:
-        N = np.sum(occ_a)
-        N2 = np.sum(occ_b)
-    
-    pro_da = np.zeros_like(orb_a)
-    pro_ba = np.zeros_like(orb_a)
-    pro_db = np.zeros_like(orb_a)
-    pro_bb = np.zeros_like(orb_a)
-    
-    for i in np.arange(orb_a.shape[0]):
-        psi_psi_a = np.outer(orb_a[:,i], orb_a[:,i])
-        pro_da += psi_psi_a*occ_a[i]
-        pro_ba += psi_psi_a*np.abs(energy_a[i])
-        
-        psi_psi_b = np.outer(orb_b[:,i], orb_b[:,i])
-        pro_db += psi_psi_b*occ_b[i]
-        pro_bb += psi_psi_b*np.abs(energy_b[i])
-    
-    mua = np.ones([1])*np.max(energy_a[energy_a<0]) #hack. Can't handle size 1 arrays cleanly.
-    mub = np.ones([1])*np.max(energy_a[energy_a<0])
-    
-    return [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2]
-
-
-def test_grad():
-    basis = 'sto-3g' #CHANGE1
-    system = System.from_file('water_equilim.xyz', obasis=basis)
-    system.init_wfn(charge=0, mult=1, restricted=False)
-    
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b = promol_guess(system, basis)
-    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b)
-
-    S = system.get_overlap()._array
-    
-    ham = Hamiltonian(system, [HartreeFock()])
-
-    lg = Lagrangian(system, ham, [pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub])
-    
-    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
-    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
-    
-    x0 = np.hstack([pro_da.ravel(), pro_db.ravel(), pro_ba.ravel(), pro_bb.ravel(), pa.ravel(), pb.ravel(), mua, mub]); lg.isUT = False
-
-    assert np.abs(lg.fdiff_hess_grad_grad(x0) - lg.lin_grad_wrap(x0)) < 1e-6
-
-def test_UTgrad():
-    basis = 'sto-3g' #CHANGE1
-    system = System.from_file('water_equilim.xyz', obasis=basis)
-    system.init_wfn(charge=0, mult=1, restricted=False)
-    
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b = promol_guess(system, basis)
-    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b)
-
-    S = system.get_overlap()._array
-    
-    ham = Hamiltonian(system, [HartreeFock()])
-
-    lg = Lagrangian(system, ham, [pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub])
-    
-    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
-    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
-    
-    x0 = prep_D(pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub); lg.isUT = True; lg.tri_offsets()
-
-    assert np.abs(lg.fdiff_hess_grad_grad(x0) - lg.lin_grad_wrap(x0)) < 1e-6
-    
-def prep_D(*args):
-    result = []
-    for i in args:
-        if i.size == 1:
-            result.append(i.squeeze())
-            continue
-        diag_idx = np.diag_indices_from(i)
-        ut_idx = np.triu_indices_from(i)
-        i[diag_idx] *= 0.5
-        result.append(2*i[ut_idx])
-    return np.hstack(result)
-
 def calc_H2O():
     solver = NewtonKrylov()
-#    
     basis = 'sto-3g'
 #    basis = '3-21G'
 #    basis = '6-31++G**'
@@ -172,7 +22,7 @@ def calc_H2O():
 #    system.init_wfn(restricted=False)
 #    guess_hamiltonian_core(system)
 
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
     
     occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5; #STO-3G ONLY
     occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
@@ -182,9 +32,9 @@ def calc_H2O():
 
 #    occ_a = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N=5; print "Using atomic constrained occ" #3-21G ONLY
 #    occ_b = np.array([1,0.5, 0.5,1/6.,1/6.,1/6.,1/6.,1/6.,1/6.,0.5, 0.5, 0.5 ,0.5]); N2=5; print "Using atomic constrained occ" #3-21G ONLY
-    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
 
-    S = system.get_overlap()._array
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
 #DFT
 #    grid = BeckeMolGrid(system, random_rotate=False)
@@ -202,9 +52,6 @@ def calc_H2O():
     L3_a0 = np.array(0.5)
     L3_b0 = np.array(0.5)
     Q1_0 = np.array(1)
-
-    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
-    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
 
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, L1_a0, L1_b0, L2_a0, L2_b0, L3_a0, L3_b0]
@@ -280,7 +127,7 @@ def calc_H2O():
 #    print norm
     
 #    x0 = np.hstack(*args); lg.isUT = False; lg.full_offsets()
-    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
 #    lg.callback_system(x0, None)
 
@@ -326,17 +173,13 @@ calc_H2O()
 #    system = System.from_file('water_equilim.xyz', obasis=basis)
 #    system.init_wfn(charge=0, mult=1, restricted=False)
 #    
-#    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b = promol_guess(system, basis)
-#    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b)
-#
-#    S = system.get_overlap()._array
+#    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b = initialGuess.promol_orbitals(system, basis)
+#    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b)
+#    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 #    
 #    ham = Hamiltonian(system, [HartreeFock()])
 #
 #    lf, lg = _lg_init(system, ham, N,N2,[pro_da, pro_db, pro_ba, pro_bb, pro_da, pro_db, mua, mub])
-#    
-#    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
-#    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
 #    
 #    ind = np.triu_indices(dm_a.shape[0])
 #    
@@ -377,10 +220,11 @@ def test_HF_STO3G():
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
     occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
     occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
-    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
 #HF
     ham = Hamiltonian(system, [HartreeFock()])
@@ -399,8 +243,9 @@ def test_HF_STO3G():
 
     lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
-    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
+    print "start HF_STO3G"
     x_star = solver.solve(lg, x0)
     
     print "Actual E:" + str(-74.965901) #NIST
@@ -409,6 +254,134 @@ def test_HF_STO3G():
     
 #test_HF_STO3G()
 
+
+def test_HF_STO3G_H2_4():
+    solver = NewtonKrylov()
+#    
+    basis = 'sto-3g'
+    system = System.from_file('H2_4.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
+    occ_a = np.array([0.5,0.5]); N=1 #STO-3G ONLY
+    occ_b = np.array([0.5,0.5]); N2=1 #STO-3G ONLY
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
+
+#HF
+    ham = Hamiltonian(system, [HartreeFock()])
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
+
+    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    print "start HF_STO3G"
+    x_star = solver.solve(lg, x0)
+    
+    print "Actual E:" + str(-74.965901) #NIST
+    print "Computed E:" + str(ham.compute_energy())
+#    assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
+    
+#test_HF_STO3G_H2_4()
+
+def test_DFT_STO3G_H2_4():
+    solver = NewtonKrylov()
+#    
+    basis = 'sto-3g'
+    system = System.from_file('H2_4.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
+    occ_a = np.array([0.5,0.5]); N=1 #STO-3G ONLY
+    occ_b = np.array([0.5,0.5]); N2=1 #STO-3G ONLY
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
+
+    grid = BeckeMolGrid(system, random_rotate=False)
+    
+    libxc_term = LibXCLDATerm('c_vwn') #vwn_5
+    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
+
+    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    print "start HF_STO3G"
+    x_star = solver.solve(lg, x0)
+    
+    print "Actual E:" + str(-74.965901) #NIST
+    print "Computed E:" + str(ham.compute_energy())
+#    assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
+    
+#test_DFT_STO3G_H2_4()
+
+def test_DFT_STO3G_Frac_H2_4():
+    solver = NewtonKrylov()
+#    
+    basis = 'sto-3g'
+    system = System.from_file('H2_4.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
+    occ_a = np.array([0.5,0.5]); N=1 #STO-3G ONLY
+    occ_b = np.array([0.5,0.5]); N2=1 #STO-3G ONLY
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
+
+    grid = BeckeMolGrid(system, random_rotate=False)
+    
+    libxc_term = LibXCLDATerm('c_vwn') #vwn_5
+    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+
+    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    print "Start DFT_STO3G_Frac"
+    x_star = solver.solve(lg, x0)
+    
+    print "Actual E:" + str(-66.634688718437) #NWCHEM
+    print "Computed E:" + str(ham.compute_energy())
+#    assert np.abs(ham.compute_energy() - -66.634688718437) < 1e-4
+    
+test_DFT_STO3G_Frac_H2_4()
+
 def test_HF_321G():
     solver = NewtonKrylov()
 #    
@@ -416,10 +389,11 @@ def test_HF_321G():
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
     occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
     occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
-    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
 #HF
     ham = Hamiltonian(system, [HartreeFock()])
@@ -438,8 +412,9 @@ def test_HF_321G():
 
     lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
-    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
+    print "start HF_321G"
     x_star = solver.solve(lg, x0)
     
     print "Actual E:" + str(-75.583747447860) #NWCHEM
@@ -448,6 +423,49 @@ def test_HF_321G():
     
 #test_HF_321G()
 
+
+def test_HF_631G():
+    solver = NewtonKrylov()
+#    
+    basis = '6-31++G**'
+    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
+#    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
+#    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
+    N = 5; N2 = 5;
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
+
+#HF
+    ham = Hamiltonian(system, [HartreeFock()])
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
+
+    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    print "start HF_631G"
+    x_star = solver.solve(lg, x0)
+    
+    print "Actual E:" + str(-74.965901) #NIST
+    print "Computed E:" + str(ham.compute_energy())
+    assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
+    
+#test_HF_631G()
+
 def test_DFT_STO3G():
     solver = NewtonKrylov()
 #    
@@ -455,10 +473,11 @@ def test_DFT_STO3G():
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
     occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
     occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
-    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
     grid = BeckeMolGrid(system, random_rotate=False)
     
@@ -479,8 +498,9 @@ def test_DFT_STO3G():
 
     lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
-    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
+    print "start DFT_STO3G"
     x_star = solver.solve(lg, x0)
     
     print "Actual E:" + str(-66.634688718437) #NWCHEM
@@ -496,10 +516,11 @@ def test_DFT_321G():
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
     occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
     occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
-    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
     grid = BeckeMolGrid(system, random_rotate=False)
     
@@ -520,8 +541,9 @@ def test_DFT_321G():
 
     lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
-    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
+    print "start DFT_321G"
     x_star = solver.solve(lg, x0)
     
     print "Actual E:" + str(-67.521923845983) #NWCHEM
@@ -537,17 +559,14 @@ def test_HF_STO3G_Frac():
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
     occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
     occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
-    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
-    S = system.get_overlap()._array
 #HF
     ham = Hamiltonian(system, [HartreeFock()])
-
-    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
-    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
@@ -563,8 +582,9 @@ def test_HF_STO3G_Frac():
 
     lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
-    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
+    print "start HF_STO3G_Frac"
     x_star = solver.solve(lg, x0)
     
     print "Actual E:" + str(-74.965901)
@@ -580,17 +600,14 @@ def test_HF_321G_Frac():
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
     occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
     occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
-    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
-    S = system.get_overlap()._array
 #HF
     ham = Hamiltonian(system, [HartreeFock()])
-
-    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
-    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
@@ -606,8 +623,9 @@ def test_HF_321G_Frac():
 
     lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
-    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
+    print "Start HF_321G_Frac"
     x_star = solver.solve(lg, x0)
     
     print "Actual E:" + str(-75.0812082641)
@@ -623,19 +641,16 @@ def test_DFT_STO3G_Frac():
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
     occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
     occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
-    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
     grid = BeckeMolGrid(system, random_rotate=False)
     
     libxc_term = LibXCLDATerm('c_vwn') #vwn_5
     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
-
-    S = system.get_overlap()._array
-    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
-    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
@@ -651,8 +666,9 @@ def test_DFT_STO3G_Frac():
 
     lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
-    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
+    print "Start DFT_STO3G_Frac"
     x_star = solver.solve(lg, x0)
     
     print "Actual E:" + str(-66.634688718437) #NWCHEM
@@ -668,19 +684,16 @@ def test_DFT_321G_Frac():
     system = System.from_file('water_equilim.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = promol_guess(system, basis)
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
     occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
     occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
-    [pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2] = promol_h2o(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
     grid = BeckeMolGrid(system, random_rotate=False)
     
     libxc_term = LibXCLDATerm('c_vwn') #vwn_5
     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
-
-    S = system.get_overlap()._array
-    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S)) #Move to promol_guess()
-    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S)) #Move to promol_guess()
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
@@ -696,8 +709,9 @@ def test_DFT_321G_Frac():
 
     lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
     
-    x0 = prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
+    print "start DFT_321G_Frac"
     x_star = solver.solve(lg, x0)
     
     print "Actual E:" + str(-67.521923845983) #NWCHEM
