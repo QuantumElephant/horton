@@ -346,7 +346,7 @@ def test_DFT_STO3G_Frac_H2_4():
     system = System.from_file('H2_4.xyz', obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis, np.array([[1,-1,1]]))
     occ_a = np.array([0.5,0.5]); N=1 #STO-3G ONLY
     occ_b = np.array([0.5,0.5]); N2=1 #STO-3G ONLY
     pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)

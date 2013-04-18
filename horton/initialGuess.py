@@ -16,7 +16,7 @@ def sqrtm(A):
     
     return result
 
-def promol_orbitals(sys, basis, ifCheat = False):
+def promol_orbitals(sys, basis, numChargeMult=None, ifCheat = False):
     orb_alpha = []
     orb_beta = []
     occ_alpha = []
@@ -25,10 +25,15 @@ def promol_orbitals(sys, basis, ifCheat = False):
     e_beta = []
     nbasis = []
     
-    for i in np.sort(sys.numbers)[::-1]:
+    for atomNum,i in enumerate(sys.numbers):
         atom_sys = System(np.zeros((1,3), float), np.array([i]), obasis=basis) #hacky
-        if i > 1:
-            atom_sys.init_wfn(charge=0, mult=3, restricted=False)
+        
+        if isinstance(numChargeMult, np.ndarray) and atomNum in numChargeMult[:,0]:
+            [num, charge, mult] = numChargeMult[np.where(numChargeMult[:,0] == atomNum),:].squeeze()
+            print "REWRITING atom number " + str(num) + " element: " + str(i) + " with charge: " \
+                + str(charge) + " and multiplicity: " + str(mult)
+            
+            atom_sys.init_wfn(charge=charge, mult=mult,restricted=False)
         else:
             atom_sys.init_wfn(restricted=False)        
 
@@ -140,6 +145,19 @@ def prep_D(*args):
         i[diag_idx] *= 0.5
         result.append(2*i[ut_idx])
     return np.hstack(result)
+
+# def project(origSys, projectedSys, *args):
+# #     largeSys = System(smallSys.coordinates, smallSys.numbers, obasis=largeBasis)
+#     
+#     sOrig = origSys.get_overlap()._array
+#     sProj = projectedSys.get_overlap()._array
+#     
+#     sOrigProj = sProj[:sOrig.shape[0], sOrig.shape[1]:]
+#     sProjInv = np.linalg.inv(sProj)
+#     
+#     for i in args:
+#         np.dot(sProjInv, sOrigProj.T)
+    
 
 def normalize_D(*args):
     result = []
