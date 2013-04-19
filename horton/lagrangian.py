@@ -213,9 +213,10 @@ class Lagrangian(object):
             dLdD = fock
 #            print "fock", dLdD
             
-            sbs = np.dot(np.dot(S,B),S)
-            sdsbs = np.dot(np.dot(S,D),sbs)
-            sbsds = np.dot(np.dot(sbs,D),S)    
+            sbs = reduce(np.dot,[S,B,S])
+            sdsbs = reduce(np.dot,[S,D,sbs])
+            sbsds = reduce(np.dot,[sbs,D,S])
+            
             outside = sbs - sdsbs - sbsds + sbs.T - sdsbs.T - sbsds.T
             dLdD -= 0.5*outside
 #            print "fock - outside", dLdD
@@ -229,8 +230,8 @@ class Lagrangian(object):
 #            assert (np.abs(con[0].D_gradient(D,ls[0]) + ls*S) < 1e-10).all(), con[0].D_gradient(D,ls[0]) + ls*S
         
             #dL/dB block
-            sds = np.dot(np.dot(S,D),S)
-            sdsds = np.dot(np.dot(np.dot(np.dot(S,D),S),D),S)
+            sds = reduce(np.dot,[S,D,S])
+            sdsds = reduce(np.dot,[S,D,S,D,S])
             
             if self.ifFrac:
                 pp = np.dot(P,P)
@@ -314,11 +315,20 @@ class Lagrangian(object):
             if self.ifFrac:
                 [D,B,P] = spin[0:3]
                 ls = spin[3:-1]
-                pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
+                pauli_test_old = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
+                
+                pauli_test = np.dot(B,(reduce(np.dot,[S,D,S]) - reduce(np.dot,[S,D,S,D,S]) - np.dot(P,P)))
+                                    
+                assert (pauli_test_old - pauli_test < 1e-8).all()
+                
             else:
                 [D,B] = spin[0:2]
                 ls = spin[2:-1]
-                pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S))
+                pauli_test_old = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S))
+                
+                pauli_test = np.dot(B,(reduce(np.dot,[S,D,S]) - reduce(np.dot,[S,D,S,D,S])))
+                                    
+                assert (pauli_test_old - pauli_test < 1e-8).all()
             con = spin[-1]
             
             result -= np.trace(pauli_test)

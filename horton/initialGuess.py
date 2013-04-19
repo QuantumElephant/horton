@@ -129,8 +129,8 @@ def calc_DM(sys):
 
 def promol_frac(sys, pro_da, pro_db):
     S = sys.get_overlap()._array
-    pa = sqrtm(np.dot(np.dot(S,pro_da),S) - np.dot(np.dot(np.dot(np.dot(S,pro_da),S),pro_da),S))
-    pb = sqrtm(np.dot(np.dot(S,pro_db),S) - np.dot(np.dot(np.dot(np.dot(S,pro_db),S),pro_db),S))
+    pa = sqrtm(reduce(np.dot,[S,pro_da,S]) - reduce(np.dot,[S,pro_da,S,pro_da,S]))
+    pb = sqrtm(reduce(np.dot,[S,pro_db,S]) - reduce(np.dot,[S,pro_db,S,pro_db,S]))
     
     return pa, pb
     
@@ -146,18 +146,19 @@ def prep_D(*args):
         result.append(2*i[ut_idx])
     return np.hstack(result)
 
-# def project(origSys, projectedSys, *args):
-# #     largeSys = System(smallSys.coordinates, smallSys.numbers, obasis=largeBasis)
-#     
+# def project(origSys, projectedBasis, *args):
+#     projectedSys = System(origSys.coordinates, origSys.numbers, obasis=projectedBasis)
+#      
 #     sOrig = origSys.get_overlap()._array
 #     sProj = projectedSys.get_overlap()._array
-#     
+#      
 #     sOrigProj = sProj[:sOrig.shape[0], sOrig.shape[1]:]
-#     sProjInv = np.linalg.inv(sProj)
+#     sProjInv = np.linalg.inv(sProj[sOrig.shape[0]:, sOrig.shape[1]:])
 #     
+#     result = []
 #     for i in args:
-#         np.dot(sProjInv, sOrigProj.T)
-    
+#         result.append(reduce(np.dot,[sProjInv,sOrigProj.T,i,sOrigProj,sProjInv]))
+#     
 
 def normalize_D(*args):
     result = []
