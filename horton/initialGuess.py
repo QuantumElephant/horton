@@ -146,24 +146,39 @@ def prep_D(*args):
         result.append(2*i[ut_idx])
     return np.hstack(result)
 
-def project(origSys, origBasis, projectedBasis, *args):
+def project(origSys, origBasisName, projectedBasisName, *args):
+    #assert that atoms are defined in both basis sets
+    for i in [origBasisName, projectedBasisName]:
+        System(origSys.coordinates, origSys.numbers, i)
     
+    #generate combined basis projection
+    mappingBasis = "projection_hack"
+    with open(context.get_fn("basis/"+origBasisName.lower()+".nwchem")) as fh:
+        origBasis = fh.read()
+    with open(context.get_fn("basis/"+projectedBasisName.lower()+".nwchem")) as fh:
+        projectedBasis = fh.read()
+    with open(context.get_fn("basis/"+mappingBasis.lower()+".nwchem"),'w') as fh:
+        projectedBasis.replace("BASIS \"ao basis\" PRINT", " ")
+        combinedBasis = origBasis.replace("END", projectedBasis)
+#         print combinedBasis
+        fh.write(combinedBasis)
+        
     #Calculate sizes of new and old atomic basis
     projAtomBasis = [0]
     for i in origSys.numbers:
-        atom_sys = System(np.zeros((1,3)), np.array([i]), obasis=projectedBasis)
+        atom_sys = System(np.zeros((1,3)), np.array([i]), obasis=mappingBasis)
         atom_sys.init_wfn(restricted=False)
         projAtomBasis.append(atom_sys.get_overlap()._array.shape[0])
     projAtomBasis = np.cumsum(projAtomBasis)
     
     origAtomBasis = []
     for i in origSys.numbers:
-        atom_sys = System(np.zeros((1,3)), np.array([i]), obasis=origBasis)
+        atom_sys = System(np.zeros((1,3)), np.array([i]), obasis=origBasisName)
         atom_sys.init_wfn(restricted=False)
         origAtomBasis.append(atom_sys.get_overlap()._array.shape[0])
     
     #Create new basis for molecule
-    projectedSys = System(origSys.coordinates, origSys.numbers, obasis=projectedBasis)
+    projectedSys = System(origSys.coordinates, origSys.numbers, obasis=mappingBasis)
     sProjAtomOrdered = projectedSys.get_overlap()._array
     
     #Convert from atom ordered to basis set ordered by rows then by columns 
@@ -183,7 +198,7 @@ def project(origSys, origBasis, projectedBasis, *args):
         sProjLgColPermuted.append(sProjAtomOrdered[j+i:jNext,:])
     
     sProj = np.vstack(sProjSmColPermuted + sProjLgColPermuted)
-    print sProj
+#     print sProj
     
     #Project elements onto new basis
     sOrigProj = sProj[:sOrig.shape[0], sOrig.shape[1]:]

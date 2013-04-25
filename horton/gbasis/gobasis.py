@@ -214,6 +214,7 @@ go_basis_families = [
     GOBasisFamily('sto3gTo321g', filename=context.get_fn('basis/sto3gTo321g.nwchem')),
     GOBasisFamily('sto3gTo631g**', filename=context.get_fn('basis/sto3gTo631g**.nwchem')),
     GOBasisFamily('6-31G**', filename=context.get_fn('basis/6-31g**.nwchem')),
+    GOBasisFamily('projection_hack', filename=context.get_fn('basis/projection_hack.nwchem')),
 ]
 go_basis_families = dict((bf.name.lower(), bf) for bf in go_basis_families)
 
