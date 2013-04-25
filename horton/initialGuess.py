@@ -146,19 +146,54 @@ def prep_D(*args):
         result.append(2*i[ut_idx])
     return np.hstack(result)
 
-# def project(origSys, projectedBasis, *args):
-#     projectedSys = System(origSys.coordinates, origSys.numbers, obasis=projectedBasis)
-#      
-#     sOrig = origSys.get_overlap()._array
-#     sProj = projectedSys.get_overlap()._array
-#      
-#     sOrigProj = sProj[:sOrig.shape[0], sOrig.shape[1]:]
+def project(origSys, origBasis, projectedBasis, *args):
+    
+    #Calculate sizes of new and old atomic basis
+    projAtomBasis = [0]
+    for i in origSys.numbers:
+        atom_sys = System(np.zeros((1,3)), np.array([i]), obasis=projectedBasis)
+        atom_sys.init_wfn(restricted=False)
+        projAtomBasis.append(atom_sys.get_overlap()._array.shape[0])
+    projAtomBasis = np.cumsum(projAtomBasis)
+    
+    origAtomBasis = []
+    for i in origSys.numbers:
+        atom_sys = System(np.zeros((1,3)), np.array([i]), obasis=origBasis)
+        atom_sys.init_wfn(restricted=False)
+        origAtomBasis.append(atom_sys.get_overlap()._array.shape[0])
+    
+    #Create new basis for molecule
+    projectedSys = System(origSys.coordinates, origSys.numbers, obasis=projectedBasis)
+    sProjAtomOrdered = projectedSys.get_overlap()._array
+    
+    #Convert from atom ordered to basis set ordered by rows then by columns 
+    sOrig = origSys.get_overlap()._array
+    sProjSmColPermuted = []
+    sProjLgColPermuted = []
+    for i,j,jNext in zip(origAtomBasis, projAtomBasis[:-1], projAtomBasis[1:]):
+        sProjSmColPermuted.append(sProjAtomOrdered[:, j:j+i])
+        sProjLgColPermuted.append(sProjAtomOrdered[:, j+i:jNext])
+    
+    sProjAtomOrdered = np.hstack(sProjSmColPermuted + sProjLgColPermuted)
+    
+    sProjSmColPermuted = []
+    sProjLgColPermuted = []
+    for i,j,jNext in zip(origAtomBasis, projAtomBasis[:-1], projAtomBasis[1:]):
+        sProjSmColPermuted.append(sProjAtomOrdered[j:j+i,:])
+        sProjLgColPermuted.append(sProjAtomOrdered[j+i:jNext,:])
+    
+    sProj = np.vstack(sProjSmColPermuted + sProjLgColPermuted)
+    print sProj
+    
+    #Project elements onto new basis
+    sOrigProj = sProj[:sOrig.shape[0], sOrig.shape[1]:]
 #     sProjInv = np.linalg.inv(sProj[sOrig.shape[0]:, sOrig.shape[1]:])
-#     
-#     result = []
-#     for i in args:
-#         result.append(reduce(np.dot,[sProjInv,sOrigProj.T,i,sOrigProj,sProjInv]))
-#     
+    sProjInv = np.linalg.pinv(sProj[sOrig.shape[0]:, sOrig.shape[1]:])
+     
+    result = []
+    for i in args:
+        result.append(reduce(np.dot,[sProjInv,sOrigProj.T,i,sOrigProj,sProjInv]))
+    return result
 
 def normalize_D(*args):
     result = []

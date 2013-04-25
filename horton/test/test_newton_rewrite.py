@@ -8,7 +8,6 @@ np.set_printoptions(threshold = 2000)
 
 def calc_H2O():
     solver = NewtonKrylov()
-    basis = 'sto-3g'
 #    basis = '3-21G'
 #    basis = '6-31++G**'
     system = System.from_file('water_equilim.xyz', obasis=basis)
@@ -166,8 +165,6 @@ def calc_H2O():
     
     plt.show()
     
-calc_H2O()
-
 #def test_UTconvert():
 #    basis = 'sto-3g' #CHANGE1
 #    system = System.from_file('water_equilim.xyz', obasis=basis)
@@ -193,7 +190,6 @@ calc_H2O()
 #    
 #    assert (np.abs(b - xOrig) < 1e-10).all(), np.abs(b - xOrig)
 #    
-#test_UTconvert()
 
 def Horton_H2O():
     basis = 'STO-3G'
@@ -211,7 +207,6 @@ def Horton_H2O():
     
     converged = converge_scf_oda(ham, max_iter=5000)
     
-#Horton_H2O()
 
 def test_HF_STO3G():
     solver = NewtonKrylov()
@@ -252,7 +247,6 @@ def test_HF_STO3G():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
     
-#test_HF_STO3G()
 
 
 def test_HF_STO3G_H2_4():
@@ -294,7 +288,6 @@ def test_HF_STO3G_H2_4():
     print "Computed E:" + str(ham.compute_energy())
 #    assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
     
-#test_HF_STO3G_H2_4()
 
 def test_DFT_STO3G_H2_4():
     solver = NewtonKrylov()
@@ -337,7 +330,6 @@ def test_DFT_STO3G_H2_4():
     print "Computed E:" + str(ham.compute_energy())
 #    assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
     
-#test_DFT_STO3G_H2_4()
 
 def test_DFT_STO3G_Frac_H2_4():
     solver = NewtonKrylov()
@@ -380,7 +372,6 @@ def test_DFT_STO3G_Frac_H2_4():
     print "Computed E:" + str(ham.compute_energy())
 #    assert np.abs(ham.compute_energy() - -66.634688718437) < 1e-4
     
-test_DFT_STO3G_Frac_H2_4()
 
 def test_HF_321G():
     solver = NewtonKrylov()
@@ -421,7 +412,6 @@ def test_HF_321G():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -75.583747447860) < 1e-4 #KNOWN TO FAIL
     
-#test_HF_321G()
 
 
 def test_HF_631G():
@@ -464,7 +454,6 @@ def test_HF_631G():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
     
-#test_HF_631G()
 
 def test_DFT_STO3G():
     solver = NewtonKrylov()
@@ -507,7 +496,6 @@ def test_DFT_STO3G():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -66.634688718437) < 1e-4
     
-#test_DFT_STO3G()
 
 def test_DFT_321G():
     solver = NewtonKrylov()
@@ -550,7 +538,6 @@ def test_DFT_321G():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -67.521923845983) < 1e-4 #KNOWN TO FAIL
     
-#test_DFT_321G()
 
 def test_HF_STO3G_Frac():
     solver = NewtonKrylov()
@@ -591,7 +578,6 @@ def test_HF_STO3G_Frac():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -74.965901) < 1e-4 #KNOWN TO FAIL -74.5638326142
     
-#test_HF_STO3G_Frac()
 
 def test_HF_321G_Frac():
     solver = NewtonKrylov()
@@ -632,7 +618,6 @@ def test_HF_321G_Frac():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -75.0812082641) < 1e-10 #KNOWN TO FAIL -75.3159038895
     
-#test_HF_321G_Frac()
 
 def test_DFT_STO3G_Frac():
     solver = NewtonKrylov()
@@ -675,7 +660,6 @@ def test_DFT_STO3G_Frac():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -66.634688718437) < 1e-4
     
-#test_DFT_STO3G_Frac()
 
 def test_DFT_321G_Frac():
     solver = NewtonKrylov()
@@ -718,4 +702,50 @@ def test_DFT_321G_Frac():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -67.521923845983) < 1e-4 #KNOWN TO FAIL
     
+def test_projection():
+    basis = 'sto-3g'
+    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system.init_wfn(charge=0, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
+    occ_a = np.array([1,1,1,0.5,0.5,0.5,0.5]); N=5 #STO-3G ONLY
+    occ_b = np.array([1,1,1,0.5,0.5,0.5,0.5]); N2=5 #STO-3G ONLY
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
+    
+    newBasis = '6-31++G**'
+    system2 = System.from_file('water_equilim.xyz', obasis=newBasis)
+    system2.init_wfn(charge=0, restricted=False)
+    
+    result = initialGuess.project(system, basis,'sto3gTo631++g**', pro_da, pro_ba, pro_db, pro_bb, pa, pb)
+    print map(np.shape, result)
+    
+    
+    old_occ = map(lambda x: np.trace(x.dot(system.get_overlap()._array)), [pro_da, pro_db])
+    new_occ = map(lambda x: np.trace(x.dot(system2.get_overlap()._array)), [result[0], result[2]])
+    
+    for i,j in zip(old_occ, new_occ):
+        assert np.abs(i-j) < 1e-2, (i,j)
+        
+#     for i,j in ((pro_da,result[0]),(pro_db, result[1])):
+#         ni = np.linalg.norm(i)
+#         nj = np.linalg.norm(j)
+#         assert np.abs(ni-nj)<1e-2, (ni,nj)
+    
+
+#calc_H2O()
+#test_UTconvert()
+#Horton_H2O()
+#test_HF_STO3G()
+#test_HF_STO3G_H2_4()
+#test_DFT_STO3G_H2_4()
+#test_DFT_STO3G_Frac_H2_4()
+#test_HF_321G()
+#test_HF_631G()
+#test_DFT_STO3G()
+#test_DFT_321G()
+#test_HF_STO3G_Frac()
+#test_HF_321G_Frac()
+#test_DFT_STO3G_Frac()
 #test_DFT_321G_Frac()
+test_projection()
