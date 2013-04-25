@@ -718,7 +718,7 @@ def test_projection():
     system2 = System.from_file(xyzFile, obasis=newBasis)
     system2.init_wfn(charge=0, restricted=False)
     
-    result = initialGuess.project(system, basis,newBasis, pro_da, pro_ba, pro_db, pro_bb, pa, pb)
+    result = initialGuess.project(system, basis,newBasis, pro_da, pro_ba, pro_db, pro_bb, pa, pb, mua, mub)
     print map(np.shape, result)
     
     old_occ = map(lambda x: np.trace(x.dot(system.get_overlap()._array)), [pro_da, pro_db])
