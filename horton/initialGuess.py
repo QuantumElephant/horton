@@ -158,7 +158,7 @@ def project(origSys, origBasisName, projectedBasisName, *args):
     with open(context.get_fn("basis/"+projectedBasisName.lower()+".nwchem")) as fh:
         projectedBasis = fh.read()
     with open(context.get_fn("basis/"+mappingBasis.lower()+".nwchem"),'w') as fh:
-        projectedBasis.replace("BASIS \"ao basis\" PRINT", " ")
+        projectedBasis = projectedBasis.replace("BASIS \"ao basis\" PRINT", " ")
         combinedBasis = origBasis.replace("END", projectedBasis)
 #         print combinedBasis
         fh.write(combinedBasis)
