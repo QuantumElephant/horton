@@ -276,8 +276,8 @@ def test_HF_STO3G_H2_4():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     shapes = []
     for i in args:
@@ -318,8 +318,8 @@ def test_DFT_STO3G_H2_4():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     shapes = []
     for i in args:
@@ -360,8 +360,8 @@ def test_DFT_STO3G_Frac_H2_4():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     shapes = []
     for i in args:
@@ -442,8 +442,8 @@ def test_HF_631G():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 
-    norm_a = Constraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = Constraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
     shapes = []
     for i in args:
@@ -742,7 +742,7 @@ def test_projection():
 #         assert np.abs(ni-nj)<1e-2, (ni,nj)
     
 
-#calc_H2O()
+calc_H2O()
 #test_UTconvert()
 #Horton_H2O()
 #test_HF_STO3G()
@@ -757,4 +757,4 @@ def test_projection():
 #test_HF_321G_Frac()
 #test_DFT_STO3G_Frac()
 #test_DFT_321G_Frac()
-test_projection()
+# test_projection()
