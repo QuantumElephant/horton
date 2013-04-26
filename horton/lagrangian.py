@@ -119,9 +119,11 @@ class Lagrangian(object):
             
 #            fdan_norm = op.check_grad(self.lagrange_x, self.sym_lin_grad_wrap, tmpFwd)
 #            assert fdan_norm < 1e-4, fdan_norm
-            fdan = self.sym_lin_grad_wrap(tmpFwd) - self.fdiff_hess_grad_grad(tmpFwd)
+            fd = self.fdiff_hess_grad_grad(tmpFwd)
+            an = self.sym_lin_grad_wrap(tmpFwd)
+            fdan = fd - an 
             fdan_norm = np.linalg.norm(fdan)
-            assert fdan_norm < 1e-4, (fdan_norm, fdan)
+            assert fdan_norm < 1e-4, ("Mismatch in finite difference and analytic gradient", fdan_norm, fd, an, self.offsets)
 #            
             an = (anfn(tmpFwd) - anfn(tmpBack))/ (np.float64(2)*h)
 #            an = (self.fdiff_hess_grad_grad(tmpFwd) - self.fdiff_hess_grad_grad(tmpBack))/ (np.float64(2)*h)
@@ -220,11 +222,14 @@ class Lagrangian(object):
             outside = sbs - sdsbs - sbsds + sbs.T - sdsbs.T - sbsds.T
             dLdD -= 0.5*outside
 #            print "fock - outside", dLdD
-        
+            
+            #DEBUG DEBUG DEBUG
+#             dLdD = 0
+            #DEBUG DEBUG DEBUG
+            
             for c,l in zip(con, ls):
                 dLdD += c.D_gradient(D, l)
 #                print "fock - outside - Mu", dLdD
-            
             
             #debug
 #            assert (np.abs(con[0].D_gradient(D,ls[0]) + ls*S) < 1e-10).all(), con[0].D_gradient(D,ls[0]) + ls*S
@@ -249,14 +254,21 @@ class Lagrangian(object):
         
             dLdD = dLdD.squeeze()
             dLdB = dLdB.squeeze()
-            
+
+            #DEBUG DEBUG DEBUG DEBUG
+#             dLdD = np.zeros_like(dLdD)
+#             dLdB = np.zeros_like(dLdB)
+#             dLdP = np.zeros_like(dLdP)
+            #DEBUG DEBUG DEBUG DEBUG
+
             result.append(dLdD)
             result.append(dLdB)
             if self.ifFrac:
                 dLdP = dLdP.squeeze()
                 result.append(dLdP)
+            
             for c in con:
-                result.append(c.self_gradient(D))
+                result.append(c.self_gradient(D, l))
 #                print "dLdMu", result[-1]
             
             #debug
@@ -272,7 +284,9 @@ class Lagrangian(object):
             for i,l in zip(self.spinConstraints, spinArgs):
                 c[0] += (i.D_gradient(da,l))
                 c[1] += (i.D_gradient(db,l))
-                c.append(i.self_gradient(da + db))
+                dl_a = i.self_gradient(da, l)
+                dl_b = i.self_gradient(db, l)
+                c.append(dl_a + dl_b)
         return c  
     
     def lagrange_x(self, x):
@@ -291,9 +305,9 @@ class Lagrangian(object):
         args = self.symmetrize(*args)
 
         if self.spinConstraints is not None:
-                lenSpin = len(self.spinConstraints)
+            lenSpin = len(self.spinConstraints)
         else:
-                lenSpin = 0
+            lenSpin = 0
         
         alpha_args = list(args[:len(args)-lenSpin:2]) #args == [da, db, ba, bb] possibly including [pa, pb] 
         beta_args = list(args[1:len(args)-lenSpin:2])
@@ -309,7 +323,9 @@ class Lagrangian(object):
         Db = beta_args[0]
     
         result = 0
+        #DEBUG DEBUG DEBUG
         result += energy_spin(Da, Db)
+        #DEBUG DEBUG DEBUG
         
         for spin in (alpha_args, beta_args):
             if self.ifFrac:
@@ -331,14 +347,17 @@ class Lagrangian(object):
                 assert (pauli_test_old - pauli_test < 1e-8).all()
             con = spin[-1]
             
+            #DEBUG DEBUG DEBUG
             result -= np.trace(pauli_test)
-#            result -= np.squeeze(Mu*(np.trace(np.dot(D,S)) - n))
+            #DEBUG DEBUG DEBUG
+
             for c,m in zip(con, ls):
-                result += c.lagrange(D, m) 
+                result += c.lagrange(D, m)
             
         if self.spinConstraints is not None:
             for c,m in zip(self.spinConstraints, spinArgs):
-                result += c.lagrange(Da+Db, m)
+                result += c.lagrange(Da, m)
+                result += c.lagrange(Db, m)
         return result
     
 #    def lagrangian_spin_frac_old(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b ):

@@ -37,13 +37,13 @@ class Constraint(object):
         raise NotImplementedError
         
 class LinearConstraint(Constraint):
-    def lagrange(self, D, Mul):
+    def lagrange(self, D, mul):
         P = np.dot(self.S,D)
-        Mul = Mul.squeeze() #TODO: remove me
-        return -Mul*(np.dot(self.L.ravel(), P.ravel()) - self.C)
-    def self_gradient(self, D):
+        mul = mul.squeeze() #TODO: remove me
+        return -mul*(np.dot(self.L.ravel(), P.ravel()) - self.C)
+    def self_gradient(self, D, mul):
         P = np.dot(self.S,D)
-        return self.C - np.dot(P.ravel(), self.L.ravel()) #Breaks compatibility with pre-constraint rewrite code. Original form below.
+        return self.C - np.dot(self.L.ravel(), P.ravel()) #Breaks compatibility with pre-constraint rewrite code. Original form below.
 #        return self.C - np.trace(np.dot(P, self.L))
     def D_gradient(self, D, Mul):
         Mul = Mul.squeeze()
@@ -54,24 +54,25 @@ class LinearConstraint(Constraint):
 class QuadraticConstraint(Constraint):
     def __init__(self, sys, C, L):
         assert len(L) == 2
-        super(QuadraticConstraint, self).__init__(sys, C, L)
-    def lagrange(self, D, Mul):
+        super(QuadraticConstraint, self).__init__(sys, C/2., L)
+    def lagrange(self, D, mul):
         P = np.dot(self.S,D)
         LaSD = np.dot(self.L[0], P)
         LbSD = np.dot(self.L[1], P)
-        Mul = Mul.squeeze() #TODO: remove me
+        mul = mul.squeeze() #TODO: remove me
         
         assert np.abs(np.dot(LaSD.ravel(), LbSD.T.ravel()) - np.dot(LbSD.ravel(), LaSD.T.ravel())) < 1e-8, (np.dot(LaSD.ravel(), LbSD.T.ravel()),np.dot(LbSD.ravel(), LaSD.T.ravel()))
         
-#        return -Mul*(np.dot(LaSD.ravel(), LbSD.T.ravel()) - self.C) #need the transpose to sum properly!
-        return -Mul*(np.trace(np.dot(LaSD,LbSD)) - self.C)
-    def self_gradient(self, D):
+        return -mul*(np.dot(LaSD.ravel(), LbSD.T.ravel()) - self.C) #need the transpose to sum properly!
+#         return -Mul*(np.trace(np.dot(LaSD,LbSD)) - self.C)
+    def self_gradient(self, D, mul):
         P = np.dot(self.S,D)
         LaSD = np.dot(self.L[0], P)
         LbSD = np.dot(self.L[1], P)
+#         print mul
         
         return self.C - np.dot(LaSD.ravel(), LbSD.T.ravel()) #need the transpose to sum properly!
-#        return self.C - np.trace(np.dot(P, self.L)) 
+#        return self.C*2 - np.trace(np.dot(P, self.L)) 
     def D_gradient(self, D, Mul):
         Mul = Mul.squeeze()
         P = np.dot(self.S, D)
