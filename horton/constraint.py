@@ -41,7 +41,7 @@ class LinearConstraint(Constraint):
         P = np.dot(self.S,D)
         mul = mul.squeeze() #TODO: remove me
         return -mul*(np.dot(self.L.ravel(), P.ravel()) - self.C)
-    def self_gradient(self, D, mul):
+    def self_gradient(self, D):
         P = np.dot(self.S,D)
         return self.C - np.dot(self.L.ravel(), P.ravel()) #Breaks compatibility with pre-constraint rewrite code. Original form below.
 #        return self.C - np.trace(np.dot(P, self.L))
@@ -65,11 +65,10 @@ class QuadraticConstraint(Constraint):
         
         return -mul*(np.dot(LaSD.ravel(), LbSD.T.ravel()) - self.C) #need the transpose to sum properly!
 #         return -Mul*(np.trace(np.dot(LaSD,LbSD)) - self.C)
-    def self_gradient(self, D, mul):
+    def self_gradient(self, D):
         P = np.dot(self.S,D)
         LaSD = np.dot(self.L[0], P)
         LbSD = np.dot(self.L[1], P)
-#         print mul
         
         return self.C - np.dot(LaSD.ravel(), LbSD.T.ravel()) #need the transpose to sum properly!
 #        return self.C*2 - np.trace(np.dot(P, self.L)) 

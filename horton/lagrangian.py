@@ -268,7 +268,7 @@ class Lagrangian(object):
                 result.append(dLdP)
             
             for c in con:
-                result.append(c.self_gradient(D, l))
+                result.append(c.self_gradient(D))
 #                print "dLdMu", result[-1]
             
             #debug
@@ -284,8 +284,8 @@ class Lagrangian(object):
             for i,l in zip(self.spinConstraints, spinArgs):
                 c[0] += (i.D_gradient(da,l))
                 c[1] += (i.D_gradient(db,l))
-                dl_a = i.self_gradient(da, l)
-                dl_b = i.self_gradient(db, l)
+                dl_a = i.self_gradient(da)
+                dl_b = i.self_gradient(db)
                 c.append(dl_a + dl_b)
         return c  
     
