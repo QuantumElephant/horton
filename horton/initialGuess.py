@@ -208,7 +208,8 @@ def project(origSys, origBasisName, projectedBasisName, *args):
     result = []
     for i in args:
         if not isinstance(i, np.ndarray) or i.size == 1:
-            print "DEBUG: skipping projection of size 1 matrix"
+            print "DEBUG: skipping projection of size 1 matrix. Appending unprojected to result."
+            result.append(i)
             continue
         
         result.append(reduce(np.dot,[sProjInv,sOrigProj.T,i,sOrigProj,sProjInv]))
