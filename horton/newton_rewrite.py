@@ -20,7 +20,7 @@
 #--
 
 import scipy.optimize as op
-#import numpy as np
+import numpy as np
 
 class NewtonKrylov(object):
     def __init__(self):
@@ -40,3 +40,13 @@ class NewtonKrylov(object):
 #        x_star= op.broyden2(lg.lin_grad_wrap, x0, verbose=True, f_tol = 1e-8, callback = lg.callback_system)
 
         return x_star
+    
+    def fancy_solve(self, lg, x0):
+        hasNext = True
+        while hasNext:
+            print ("running next guess", x0)
+            x0 = self.solve(lg, x0)
+            lg.callback_system(x0, None)
+            hasNext = lg.nextStep()
+        return x0
+            

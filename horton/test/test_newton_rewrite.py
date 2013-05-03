@@ -710,39 +710,102 @@ def test_DFT_321G_Frac():
     print "Actual E:" + str(-67.521923845983) #NWCHEM
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -67.521923845983) < 1e-4 #KNOWN TO FAIL
-    
-def test_projection():
-    xyzFile = 'water_equilim.xyz'
+
+def test_stepped_constraints():
+    solver = NewtonKrylov()
+#    
     basis = 'sto-3g'
-    system = System.from_file(xyzFile, obasis=basis)
-    system.init_wfn(charge=0, restricted=False)
+    system = System.from_file('H2_e.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
-    occ_a = np.array([1,1,1,0.5,0.5,0.5,0.5]); N=5 #STO-3G ONLY
-    occ_b = np.array([1,1,1,0.5,0.5,0.5,0.5]); N2=5 #STO-3G ONLY
+    occ_a = np.array([0.5,0.5]); N=1 #STO-3G ONLY
+    occ_b = np.array([0.5,0.5]); N2=1 #STO-3G ONLY
     pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
     pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
-    
-    newBasis = '6-31++g**'
-    system2 = System.from_file(xyzFile, obasis=newBasis)
-    system2.init_wfn(charge=0, restricted=False)
-    
-    result = initialGuess.project(system, basis,newBasis, pro_da, pro_ba, pro_db, pro_bb, pa, pb, mua, mub)
-    print map(np.shape, result)
-    
-    old_occ = map(lambda x: np.trace(x.dot(system.get_overlap()._array)), [pro_da, pro_db])
-    new_occ = map(lambda x: np.trace(x.dot(system2.get_overlap()._array)), [result[0], result[2]])
-    
-    for i,j in zip(old_occ, new_occ):
-        assert np.abs(i-j) < 1e-2, (i,j)
-        
-#     for i,j in ((pro_da,result[0]),(pro_db, result[1])):
-#         ni = np.linalg.norm(i)
-#         nj = np.linalg.norm(j)
-#         assert np.abs(ni-nj)<1e-2, (ni,nj)
+
+#HF
+    ham = Hamiltonian(system, [HartreeFock()])
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
     
 
-calc_H2O()
+#     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), N-0.5, steps = 30)
+#     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), N+0.6, steps = 30)
+
+    norm_a = LinearConstraint(system, 0.98275862069, np.eye(dm_a.shape[0]))
+    norm_b = LinearConstraint(system, 1.02068965517, np.eye(dm_a.shape[0]))
+
+    shapes = initialGuess.calc_shapes(*args)
+
+    lg = Lagrangian(system, ham,True, shapes, [[norm_a],[norm_b]])
+    
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    poison_x0 =  np.array([  3.01394161e-01,   6.02788336e-01,   3.01394185e-01,
+         3.01394165e-01,   6.02788339e-01,   3.01394176e-01,
+        -6.57660026e-02,   1.52054798e+00,   3.11463524e-01,
+         1.75799819e+00,  -9.82212670e-01,   1.36911314e-01,
+         1.00566933e-06,   1.71086077e-06,  -2.17548298e-06,
+        -7.53534884e-06,  -5.41825392e-05,  -9.71493520e-05,
+         8.87087965e-01,   1.79087642e-01])
+    lg.callback_system(poison_x0, None)
+    x_test = solver.solve(lg,poison_x0)
+    print x_test
+
+
+    print "start HF_STO3G"
+    x_star = solver.fancy_solve(lg, x0)
+    
+    print "Actual E:" + str(-1.117506) #NIST
+    print "Computed E:" + str(ham.compute_energy())
+#    assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
+
+def test_HF_STO3G_Frac_stepped():
+    solver = NewtonKrylov()
+#    
+    basis = 'sto-3g'
+    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
+    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
+    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
+
+#     grid = BeckeMolGrid(system, random_rotate=False)
+#     
+#     libxc_term = LibXCLDATerm('c_vwn') #vwn_5
+#     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+    ham = Hamiltonian(system, [HartreeFock()])
+
+    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), N-0.5, 30)
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), N+0.5, 30)
+
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+
+    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    
+    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+
+    print "Start DFT_STO3G_Frac"
+    x_star = solver.fancy_solve(lg, x0)
+    
+    print "Actual E:" + str(-66.634688718437) #NWCHEM
+    print "Computed E:" + str(ham.compute_energy())
+#     assert np.abs(ham.compute_energy() - -66.634688718437) < 1e-4
+    
+test_HF_STO3G_Frac_stepped()
+# test_stepped_constraints()
+#calc_H2O()
 #test_UTconvert()
 #Horton_H2O()
 #test_HF_STO3G()

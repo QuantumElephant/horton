@@ -19,15 +19,19 @@
 #
 #--
 
+from horton import *
 import numpy as np
 
 class Constraint(object):
-    def __init__(self, sys, C, L):
+    def __init__(self, sys, C, L, CFinal = None, steps = 10):
         self.sys = sys
         self.S = sys.get_overlap()._array #don't have lg.toNumpy() yet.
 #        self.S = np.eye(7)
         self.C = C
         self.L = L #a list or a single element
+        self.CFinal = CFinal
+        if CFinal is not None:
+            self.steps_array = np.linspace(C, CFinal, steps)[1:]
         
     def lagrange(self,D, Mul):
         raise NotImplementedError
@@ -35,27 +39,46 @@ class Constraint(object):
         raise NotImplementedError
     def D_gradient(self, D, Mul):
         raise NotImplementedError
+    
+    @staticmethod
+    def integrate(system, grid, potential, suffix="L"):
+        term = CustomGridFixedTerm(grid, potential.squeeze(), suffix)
+        operator = term.get_operator(system)[0]._array
+        return operator
+    
+    def next(self):
+        if self.CFinal is None or self.steps_array.size == 0:
+            return False
+        print "Setting old C: " +str(self.C)
+        self.C = self.steps_array[0]
+        print "to new C: " + str(self.C)
+        self.steps_array = self.steps_array[1:]
+        return True
         
 class LinearConstraint(Constraint):
     def lagrange(self, D, mul):
+        self.S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
         P = np.dot(self.S,D)
         mul = mul.squeeze() #TODO: remove me
         return -mul*(np.dot(self.L.ravel(), P.ravel()) - self.C)
     def self_gradient(self, D):
+        self.S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
         P = np.dot(self.S,D)
         return self.C - np.dot(self.L.ravel(), P.ravel()) #Breaks compatibility with pre-constraint rewrite code. Original form below.
 #        return self.C - np.trace(np.dot(P, self.L))
     def D_gradient(self, D, Mul):
+        self.S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
         Mul = Mul.squeeze()
         SL = np.dot(self.S, self.L)
         
         return -Mul*0.5*(SL + SL.T) #Should this always be negative?
     
 class QuadraticConstraint(Constraint):
-    def __init__(self, sys, C, L):
+    def __init__(self, sys, C, L, CFinal = None, steps = 10):
         assert len(L) == 2
-        super(QuadraticConstraint, self).__init__(sys, C/2., L)
+        super(QuadraticConstraint, self).__init__(sys, C/2., L, CFinal/2., steps)
     def lagrange(self, D, mul):
+        self.S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
         P = np.dot(self.S,D)
         LaSD = np.dot(self.L[0], P)
         LbSD = np.dot(self.L[1], P)
@@ -66,6 +89,7 @@ class QuadraticConstraint(Constraint):
         return -mul*(np.dot(LaSD.ravel(), LbSD.T.ravel()) - self.C) #need the transpose to sum properly!
 #         return -Mul*(np.trace(np.dot(LaSD,LbSD)) - self.C)
     def self_gradient(self, D):
+        self.S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
         P = np.dot(self.S,D)
         LaSD = np.dot(self.L[0], P)
         LbSD = np.dot(self.L[1], P)
@@ -73,6 +97,7 @@ class QuadraticConstraint(Constraint):
         return self.C - np.dot(LaSD.ravel(), LbSD.T.ravel()) #need the transpose to sum properly!
 #        return self.C*2 - np.trace(np.dot(P, self.L)) 
     def D_gradient(self, D, Mul):
+        self.S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
         Mul = Mul.squeeze()
         P = np.dot(self.S, D)
         L0SDL1S = np.dot(np.dot(np.dot(self.L[0],P),self.L[1]),self.S)
@@ -84,23 +109,23 @@ class QuadraticConstraint(Constraint):
         
         return result #Should this always be negative?
     
-    def combGrad(self, x): #testing
-        Mul = x[-1]
-        D = x[:-1].reshape(7,7)
-        
-        dLdD = self.D_gradient(D, Mul)
-#        assert (np.abs(dLdD - dLdD.T) < 1e-8).all()
-        
-        result = [dLdD.ravel(), self.self_gradient(D)]
-        result = np.hstack(result)
-        
-        return result
-    
-    def reshapeX(self,x):
-        Mul = x[-1]
-        D = x[:-1].reshape(7,7)
-        
-        result = self.lagrange(D, Mul)
-#        print result
-        
-        return result
+#     def combGrad(self, x): #testing
+#         Mul = x[-1]
+#         D = x[:-1].reshape(7,7)
+#         
+#         dLdD = self.D_gradient(D, Mul)
+# #        assert (np.abs(dLdD - dLdD.T) < 1e-8).all()
+#         
+#         result = [dLdD.ravel(), self.self_gradient(D)]
+#         result = np.hstack(result)
+#         
+#         return result
+#     
+#     def reshapeX(self,x):
+#         Mul = x[-1]
+#         D = x[:-1].reshape(7,7)
+#         
+#         result = self.lagrange(D, Mul)
+# #        print result
+#         
+#         return result

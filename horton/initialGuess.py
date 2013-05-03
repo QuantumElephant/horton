@@ -146,6 +146,15 @@ def prep_D(*args):
         result.append(2*i[ut_idx])
     return np.hstack(result)
 
+def calc_shapes(*args):
+    shapes = []
+    for i in args:
+        if i.size == 1:
+            shapes.append(i.size)
+            continue
+        shapes.append(i.shape[0])
+    return shapes
+
 def project(origSys, origBasisName, projectedBasisName, *args):
     #assert that atoms are defined in both basis sets
     for i in [origBasisName, projectedBasisName]:

@@ -203,6 +203,7 @@ go_basis_families = [
     GOBasisFamily('6-31++G**', filename=context.get_fn('basis/6-31++g**.nwchem')),
     GOBasisFamily('6-31G**', filename=context.get_fn('basis/6-31g**.nwchem')),
     GOBasisFamily('6-31+G*', filename=context.get_fn('basis/6-31+g*.nwchem')),
+    GOBasisFamily('6-31G', filename=context.get_fn('basis/6-31g.nwchem')),
     GOBasisFamily('ANO', filename=context.get_fn('basis/ano-rcc.nwchem')),
     GOBasisFamily('aug-cc-pVDZ', filename=context.get_fn('basis/aug-cc-pvdz.nwchem')),
     GOBasisFamily('aug-cc-pVTZ', filename=context.get_fn('basis/aug-cc-pvtz.nwchem')),

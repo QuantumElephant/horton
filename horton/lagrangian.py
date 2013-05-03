@@ -48,6 +48,18 @@ class Lagrangian(object):
         self.nIter = 0
         self.logNextIter = False
         
+    def nextStep(self):
+        print "Stepping to next system"
+        
+        hasNext = False
+        for i in self.constraints[0] + self.constraints[1]:
+            hasNext = i.next() or hasNext
+        if self.spinConstraints is not None:
+            for i in self.spinConstraints:
+                hasNext = i.next() or hasNext
+        
+        return hasNext
+        
     def toOneBody(self, *args):
         result = []
         for i in args:
@@ -165,6 +177,7 @@ class Lagrangian(object):
         return result
     
     def calc_grad(self, *args): #move to kwargs eventually
+#         print ("gradient: ", args)
         if self.spinConstraints is not None:
                 lenSpin = len(self.spinConstraints)
         else:
@@ -507,7 +520,9 @@ class Lagrangian(object):
             shortDim = np.min(i.shape)
             if shortDim != np.max(i.shape):
                 print "truncating matrix for plotting"
-            symerror = np.abs(i[:,:shortDim] - i.T[:shortDim,:]) 
+            symerror = np.abs(i[:,:shortDim] - i.T[:shortDim,:])
+            if not (symerror < 1e-8).all():
+                print "sym:", args
             assert (symerror < 1e-8).all(), (np.vstack(np.where(symerror > 1e-8)).T, symerror,np.sort(symerror, None)[-20:], self.plot_mat(symerror > 1e-8))
     
     def plot_mat(self, mat):
