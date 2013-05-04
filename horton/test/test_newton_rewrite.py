@@ -67,8 +67,8 @@ def calc_H2O():
 #    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub] #Integer occupations
 #    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub, L1_a0, L1_b0]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
     L1 = np.eye(dm_a.shape[0]);
     L2 = np.eye(dm_a.shape[0]);
@@ -234,10 +234,10 @@ def test_HF_STO3G():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = False)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -267,10 +267,10 @@ def test_HF_STO3G_H2_4():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = False)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -301,10 +301,10 @@ def test_HF_STO3G_H2_4():
 # 
 #     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 # 
-#     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-#     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+#     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+#     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 # 
-#     lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = False)
+#     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
 #     
 #     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 # 
@@ -336,10 +336,10 @@ def test_DFT_STO3G_Frac_H2_4():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = True)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -367,10 +367,10 @@ def test_HF_321G():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = False)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -400,11 +400,11 @@ def test_HF_631G():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = False)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -469,10 +469,10 @@ def test_DFT_321G():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = False)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -502,10 +502,10 @@ def test_HF_STO3G_Frac():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = True)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -535,10 +535,10 @@ def test_HF_321G_Frac():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = True)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -570,10 +570,10 @@ def test_DFT_STO3G_Frac():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = True)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -605,10 +605,10 @@ def test_DFT_321G_Frac():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = True)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -643,7 +643,7 @@ def test_stepped_constraints():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), N-0.5, 30)
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), N+0.5, 30)
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = True)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
