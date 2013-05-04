@@ -23,11 +23,13 @@ from horton import *
 import numpy as np
 
 class Constraint(object):
-    def __init__(self, sys, C, L, C_init = None, D = None, steps = 10):
+    def __init__(self, sys, C, L, select, C_init = None, D = None, steps = 10):
         self.sys = sys
         self.S = sys.get_overlap()._array #don't have lg.toNumpy() yet.
         self.L = L #a list or a single element
-        self.C_init = C_init
+        self.select = select
+
+        self.C_init = C_init        
         if D is not None and C_init is None:
             C_init = np.trace(reduce(np.dot,[L,self.S,D]))
         if C_init is not None:

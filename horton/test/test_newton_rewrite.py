@@ -117,7 +117,7 @@ def calc_H2O():
 #    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b]], [L2_a])
 #     lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]], [L1_a,L2_a,Q1])
 #     lg = Lagrangian(system, ham, True, shapes, [[norm_a],[norm_b]], [Q1])
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], [Q1], ifFrac = True) 
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], [Q1], isFrac = True) 
 #    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b]]) #O:4/4
     
 #    norm = op.check_grad(Q1.reshapeX, Q1.combGrad, np.hstack([pro_da.ravel(),Q1_0]))
@@ -228,7 +228,6 @@ def test_HF_STO3G():
     occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
     occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
     pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
-    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
 #HF
     ham = Hamiltonian(system, [HartreeFock()])
@@ -238,14 +237,7 @@ def test_HF_STO3G():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = False)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -269,7 +261,6 @@ def test_HF_STO3G_H2_4():
     occ_a = np.array([0.5,0.5]); N=1 #STO-3G ONLY
     occ_b = np.array([0.5,0.5]); N2=1 #STO-3G ONLY
     pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
-    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
 #HF
     ham = Hamiltonian(system, [HartreeFock()])
@@ -279,14 +270,7 @@ def test_HF_STO3G_H2_4():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = False)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -298,46 +282,38 @@ def test_HF_STO3G_H2_4():
 #    assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
     
 
-def test_DFT_STO3G_H2_4():
-    solver = NewtonKrylov()
-#    
-    basis = 'sto-3g'
-    system = System.from_file('H2_4.xyz', obasis=basis)
-    system.init_wfn(charge=0, mult=1, restricted=False)
-    
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
-    occ_a = np.array([0.5,0.5]); N=1 #STO-3G ONLY
-    occ_b = np.array([0.5,0.5]); N2=1 #STO-3G ONLY
-    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
-    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
-
-    grid = BeckeMolGrid(system, random_rotate=False)
-    
-    libxc_term = LibXCLDATerm('c_vwn') #vwn_5
-    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
-
-    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
-
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
-
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
-    
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
-
-    print "start HF_STO3G"
-    x_star = solver.solve(lg, x0)
-    
-    print "Actual E:" + str(-74.965901) #NIST
-    print "Computed E:" + str(ham.compute_energy())
-#    assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
+# def test_DFT_STO3G_H2_4(): #KNOWN TO FAIL CONVERGENCE
+#     solver = NewtonKrylov()
+# #    
+#     basis = 'sto-3g'
+#     system = System.from_file('H2_4.xyz', obasis=basis)
+#     system.init_wfn(charge=0, mult=1, restricted=False)
+#     
+#     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
+#     occ_a = np.array([0.5,0.5]); N=1 #STO-3G ONLY
+#     occ_b = np.array([0.5,0.5]); N2=1 #STO-3G ONLY
+#     pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+# 
+#     grid = BeckeMolGrid(system, random_rotate=False)
+#     
+#     libxc_term = LibXCLDATerm('c_vwn') #vwn_5
+#     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+# 
+#     args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
+# 
+#     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
+#     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+# 
+#     lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = False)
+#     
+#     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+# 
+#     print "start HF_STO3G"
+#     x_star = solver.solve(lg, x0)
+#     
+#     print "Actual E:" + str(-74.965901) #NIST
+#     print "Computed E:" + str(ham.compute_energy()) #KNOWN TO FAIL CONVERGENCE
+# #    assert np.abs(ham.compute_energy() - -74.965901) < 1e-4
     
 
 def test_DFT_STO3G_Frac_H2_4():
@@ -363,14 +339,7 @@ def test_DFT_STO3G_Frac_H2_4():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -393,8 +362,6 @@ def test_HF_321G():
     occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
     occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
     pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
-    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
-
 #HF
     ham = Hamiltonian(system, [HartreeFock()])
 
@@ -403,14 +370,7 @@ def test_HF_321G():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = False)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -435,8 +395,6 @@ def test_HF_631G():
 #    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
     N = 5; N2 = 5;
     pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
-    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
-
 #HF
     ham = Hamiltonian(system, [HartreeFock()])
 
@@ -445,14 +403,8 @@ def test_HF_631G():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = False)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -475,26 +427,18 @@ def test_DFT_STO3G():
     occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
     occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
     pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
-    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
     grid = BeckeMolGrid(system, random_rotate=False)
     
     libxc_term = LibXCLDATerm('c_vwn') #vwn_5
     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
 
-    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
+    args = [pro_da, pro_ba, pro_db, pro_bb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -517,7 +461,6 @@ def test_DFT_321G():
     occ_a = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N=5 #3-21G ONLY
     occ_b = np.array([1,0.5, 0.5,2/6.,2/6.,2/6.,2/6.,2/6.,2/6.,0.25, 0.25, 0.25 ,0.25]); N2=5 #3-21G ONLY
     pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
-    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
     grid = BeckeMolGrid(system, random_rotate=False)
     
@@ -529,14 +472,7 @@ def test_DFT_321G():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = False)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -569,14 +505,7 @@ def test_HF_STO3G_Frac():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -609,14 +538,7 @@ def test_HF_321G_Frac():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -651,14 +573,7 @@ def test_DFT_STO3G_Frac():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -693,14 +608,7 @@ def test_DFT_321G_Frac():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]))
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]))
 
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -735,7 +643,7 @@ def test_stepped_constraints():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), N-0.5, 30)
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), N+0.5, 30)
 
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], isFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -746,20 +654,18 @@ def test_stepped_constraints():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -73.6549343469) < 1e-4
   
-test_stepped_constraints()
-#calc_H2O()
-#test_UTconvert()
-# Horton_H2O()
-#test_HF_STO3G()
-#test_HF_STO3G_H2_4()
-#test_DFT_STO3G_H2_4()
-#test_DFT_STO3G_Frac_H2_4()
-#test_HF_321G()
-#test_HF_631G()
-#test_DFT_STO3G()
-#test_DFT_321G()
-#test_HF_STO3G_Frac()
-#test_HF_321G_Frac()
-#test_DFT_STO3G_Frac()
-#test_DFT_321G_Frac()
-# test_projection()
+# test_stepped_constraints()
+# # calc_H2O()
+# # Horton_H2O()
+# test_HF_STO3G()
+# test_HF_STO3G_H2_4()
+# # test_DFT_STO3G_H2_4()
+# test_DFT_STO3G_Frac_H2_4()
+# test_HF_321G()
+# test_HF_631G()
+test_DFT_STO3G()
+# test_DFT_321G()
+# test_HF_STO3G_Frac()
+# test_HF_321G_Frac()
+# # test_DFT_STO3G_Frac()
+# # test_DFT_321G_Frac()

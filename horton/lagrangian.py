@@ -6,35 +6,31 @@ import pylab
 
 #TODO: profile to figure out a quick way of evaluating this function.
 class Lagrangian(object):
-    def __init__(self,sys,ham, constraints, spinConstraints = None, ifHess = False, ifFrac = False, ifRestricted = False):
+    def __init__(self,sys,ham, constraints, ifHess = False, isFrac = False, isRestricted = False):
+        self.sys = sys
+        self.ham = ham
         self.lf = sys.lf
         self.S = self.toNumpy(sys.get_overlap())
         self.constraints = constraints
-        self.spinConstraints = spinConstraints
         self.ifHess = ifHess
-        self.ifFrac = ifFrac
-        self.ifRestricted = ifRestricted
+        self.isFrac = isFrac
+        self.isRestricted = isRestricted
         
         nbasis = sys.wfn.nbasis
-        if ifFrac:
+        if isFrac:
             print "Fractional occupations enabled"
             base_args = [nbasis]*6
+            self.nfixed_args = 6
         else:
             print "Fractional occupations disabled"
             base_args = [nbasis]*4
+            self.nfixed_args = 4
         
-        if spinConstraints is not None:
-            len_spin_cons = len(spinConstraints)
-        else:
-            len_spin_cons = []
-        cons_args = [1] * len(constraints[0] + constraints[1] + len_spin_cons)
+        cons_args = [1] * len(constraints)
         
         self.shapes = base_args + cons_args
         
         self.offsets = [0]
-        
-        self.sys = sys
-        self.ham = ham
         
         self.fock_alpha = self.lf.create_one_body(self.shapes[0])
         self.fock_beta = self.lf.create_one_body(self.shapes[1])
@@ -178,27 +174,21 @@ class Lagrangian(object):
     
     def calc_grad(self, *args): #move to kwargs eventually
 #         print ("gradient: ", args)
-        if self.spinConstraints is not None:
-                lenSpin = len(self.spinConstraints)
-        else:
-                lenSpin = 0
         
-        alpha_args = list(args[:len(args)-lenSpin:2]) #args == [da, db, ba, bb] possibly including [pa, pb] 
-        beta_args = list(args[1:len(args)-lenSpin:2])
-        spinArgs = list(args[-lenSpin:])
-        alpha_args.append(self.constraints[0])
-        beta_args.append(self.constraints[1])
+        alpha_args = list(args[:self.nfixed_args/2])
+        if not self.isRestricted:
+            beta_args = list(args[self.nfixed_args/2:self.nfixed_args])
+        else:
+            beta_args = []
 
         da = alpha_args[0]
         db = beta_args[0]
         
         S = self.S
         
-        result = []
-    
         self.sys.wfn.invalidate()
         self.ham.invalidate()
-        self.sys.wfn.update_dm("alpha", self.toOneBody(da))
+        self.sys.wfn.update_dm("alpha", self.toOneBody(da)) #TODO: Fix for restricted
         self.sys.wfn.update_dm("beta", self.toOneBody(db))
         self.sys.wfn.update_dm("full", self.toOneBody(da+db))
     
@@ -212,19 +202,18 @@ class Lagrangian(object):
         
         alpha_args.append(self.toNumpy(self.fock_alpha))
         beta_args.append(self.toNumpy(self.fock_beta))
-        
-#        print "alpha"
-        for spin in (alpha_args, beta_args):
-            if self.ifFrac:
-                [D,B,P] = spin[0:3]
-                ls = spin[3:-2]
-            else:
-                [D,B] = spin[0:2]
-                ls = spin[2:-2]
-            fock = spin[-1]
-            con = spin[-2]
+
+        fixed_terms = []        
+        for i in (alpha_args, beta_args):
+            if len(i) == 0:
+                continue
             
-#            dLdD = 0
+            if self.isFrac:
+                [D,B,P] = i[:self.nfixed_args/2]
+            else:
+                [D,B] = i[:self.nfixed_args/2]
+            fock = i[-1]
+
             dLdD = fock
 #            print "fock", dLdD
             
@@ -232,33 +221,21 @@ class Lagrangian(object):
             sdsbs = reduce(np.dot,[S,D,sbs])
             sbsds = reduce(np.dot,[sbs,D,S])
             
-            outside = sbs - sdsbs - sbsds + sbs.T - sdsbs.T - sbsds.T
-            dLdD -= 0.5*outside
+            dLdD -= 0.5*(sbs - sdsbs - sbsds + sbs.T - sdsbs.T - sbsds.T)
 #            print "fock - outside", dLdD
             
-            #DEBUG DEBUG DEBUG
-#             dLdD = 0
-            #DEBUG DEBUG DEBUG
-            
-            for c,l in zip(con, ls):
-                dLdD += c.D_gradient(D, l)
-#                print "fock - outside - Mu", dLdD
-            
-            #debug
-#            assert (np.abs(con[0].D_gradient(D,ls[0]) + ls*S) < 1e-10).all(), con[0].D_gradient(D,ls[0]) + ls*S
-        
             #dL/dB block
             sds = reduce(np.dot,[S,D,S])
             sdsds = reduce(np.dot,[S,D,S,D,S])
             
-            if self.ifFrac:
+            if self.isFrac:
                 pp = np.dot(P,P)
             else:
                 pp = np.zeros_like(sds)
             dLdB = -0.5*(sds - sdsds - pp + sds.T - sdsds.T - pp.T)
 #            print "dLdB", dLdB
             
-            if self.ifFrac: #TODO: abstract out constraint eventually
+            if self.isFrac:
                 #dL/dP block
                 PB = np.dot(P,B)
                 BP = np.dot(B,P)
@@ -268,39 +245,40 @@ class Lagrangian(object):
             dLdD = dLdD.squeeze()
             dLdB = dLdB.squeeze()
 
-            #DEBUG DEBUG DEBUG DEBUG
-#             dLdD = np.zeros_like(dLdD)
-#             dLdB = np.zeros_like(dLdB)
-#             dLdP = np.zeros_like(dLdP)
-            #DEBUG DEBUG DEBUG DEBUG
-
-            result.append(dLdD)
-            result.append(dLdB)
-            if self.ifFrac:
+            fixed_terms.append(dLdD)
+            fixed_terms.append(dLdB)
+            if self.isFrac:
                 dLdP = dLdP.squeeze()
-                result.append(dLdP)
+                fixed_terms.append(dLdP)
             
-            for c in con:
-                result.append(c.self_gradient(D))
-#                print "dLdMu", result[-1]
-            
-            #debug
-#            assert np.abs(con[0].self_gradient(D) - (con[0].C - np.trace(np.dot(S,D)))) < 1e-10
-#            print "switching to beta"
-                
-        pivot = len(result)/2 
-        a = result[0:pivot]
-        b = result[pivot:]    
-        c = [j for i in zip(a,b) for j in i]
+#         if not self.isRestricted:
+#             pivot = len(fixed_terms)/2
+#             a = fixed_terms[0:pivot]
+#             b = fixed_terms[pivot:]    
+#             result = [j for i in zip(a,b) for j in i]
+
+        result = fixed_terms
         
-        if self.spinConstraints is not None:
-            for i,l in zip(self.spinConstraints, spinArgs):
-                c[0] += (i.D_gradient(da,l))
-                c[1] += (i.D_gradient(db,l))
-                dl_a = i.self_gradient(da)
-                dl_b = i.self_gradient(db)
-                c.append(dl_a + dl_b)
-        return c  
+        assert len(self.constraints) == len(args[self.nfixed_args:])
+        
+        for con,mul in zip(self.constraints, args[self.nfixed_args:]):
+            if con.select == "alpha":
+                result[0]+= con.D_gradient(da, mul)
+                result.append(con.self_gradient(da))
+            elif con.select == "beta":
+                result[1]+= con.D_gradient(db, mul)
+                result.append(con.self_gradient(db))
+            elif con.select == "add" or con.select == "diff":
+                result[0]+= con.D_gradient(da, mul)
+                result[1]+= con.D_gradient(db, mul)
+                if con.select == "add":
+                    result.append(con.self_gradient(da) + con.self_gradient(db))
+                else:
+                    result.append(con.self_gradient(da) - con.self_gradient(db))
+            else:
+                raise ValueError('The select argument must be alpha or beta or add or diff')
+        
+        return result
     
     def lagrange_x(self, x):
         if self.isUT:
@@ -316,91 +294,50 @@ class Lagrangian(object):
     
     def lagrangian_spin_frac(self, *args):
         args = self.symmetrize(*args)
-
-        if self.spinConstraints is not None:
-            lenSpin = len(self.spinConstraints)
+        
+        alpha_args = args[:self.nfixed_args/2]
+        if not self.isRestricted:
+            beta_args = args[self.nfixed_args/2:self.nfixed_args]
         else:
-            lenSpin = 0
-        
-        alpha_args = list(args[:len(args)-lenSpin:2]) #args == [da, db, ba, bb] possibly including [pa, pb] 
-        beta_args = list(args[1:len(args)-lenSpin:2])
-        spinArgs = list(args[-lenSpin:])
-        
-        alpha_args.append(self.constraints[0])
-        beta_args.append(self.constraints[1])
+            beta_args = []
         
         S = self.S
         energy_spin = self.energy_spin
     
-        Da = alpha_args[0]
-        Db = beta_args[0]
+        da = alpha_args[0]
+        db = beta_args[0]
     
-        result = 0
-        #DEBUG DEBUG DEBUG
-        result += energy_spin(Da, Db)
-        #DEBUG DEBUG DEBUG
+        result = energy_spin(da, db)
         
-        for spin in (alpha_args, beta_args):
-            if self.ifFrac:
-                [D,B,P] = spin[0:3]
-                ls = spin[3:-1]
-                pauli_test_old = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
-                
-                pauli_test = np.dot(B,(reduce(np.dot,[S,D,S]) - reduce(np.dot,[S,D,S,D,S]) - np.dot(P,P)))
-                                    
-                assert (pauli_test_old - pauli_test < 1e-8).all()
-                
+        for i in (alpha_args, beta_args):
+            if len(i) == 0:
+                continue
+            if self.isFrac:
+                [D,B,P] = i[:self.nfixed_args/2]
             else:
-                [D,B] = spin[0:2]
-                ls = spin[2:-1]
-                pauli_test_old = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S))
-                
-                pauli_test = np.dot(B,(reduce(np.dot,[S,D,S]) - reduce(np.dot,[S,D,S,D,S])))
-                                    
-                assert (pauli_test_old - pauli_test < 1e-8).all()
-            con = spin[-1]
+                [D,B] = i[:self.nfixed_args/2]
             
-            #DEBUG DEBUG DEBUG
+            pauli_test = reduce(np.dot,[S,D,S]) - reduce(np.dot,[S,D,S,D,S])
+            if self.isFrac:
+                pauli_test -= np.dot(P,P)
+            pauli_test = np.dot(B,pauli_test)
             result -= np.trace(pauli_test)
-            #DEBUG DEBUG DEBUG
 
-            for c,m in zip(con, ls):
-                result += c.lagrange(D, m)
-            
-        if self.spinConstraints is not None:
-            for c,m in zip(self.spinConstraints, spinArgs):
-                result += c.lagrange(Da, m)
-                result += c.lagrange(Db, m)
+        for con,mul in zip(self.constraints, args[self.nfixed_args:]):
+            if con.select == "alpha":
+                result += con.lagrange(da, mul)
+            elif con.select == "beta":
+                result += con.lagrange(db, mul)
+            elif con.select == "add":
+                result += con.lagrange(da, mul)
+                result += con.lagrange(db, mul)
+            elif con.select == "diff":
+                result += con.lagrange(da, mul)
+                result -= con.lagrange(db, mul)
+            else:
+                raise ValueError('The select argument must be alpha or beta or add or diff')
+                
         return result
-    
-#    def lagrangian_spin_frac_old(self, Da, Db, Ba, Bb, Pa, Pb, Mua, Mub, L1a, L1b, L2a, L2b, L3a, L3b ):
-#        S = self.S
-#        N = self.N
-#        N2 = self.N2
-#        energy_spin = self.energy_spin
-#        
-#        Da = 0.5*(Da+Da.T)
-#        Db = 0.5*(Db+Db.T)
-#        Ba = 0.5*(Ba+Ba.T)
-#        Bb = 0.5*(Bb+Bb.T)
-#        Pa = 0.5*(Pa+Pa.T)
-#        Pb = 0.5*(Pb+Pb.T)
-#    
-#        result = 0
-#        result += energy_spin(Da, Db)
-#        
-#        for spin in [[Da,Ba,Pa,Mua,N,L1a, L2a, L3a], [Db,Bb,Pb,Mub,N2, L1b, L2b, L3b]]:
-#            [D,B,P,Mu,n, L1, L2, L3] = spin
-#            pauli_test = np.dot(B,np.dot(np.dot(S,D),S) - np.dot(np.dot(np.dot(np.dot(S,D),S),D),S) - np.dot(P,P))
-#            result -= np.trace(pauli_test)
-#            result -= np.squeeze(Mu*(np.trace(np.dot(D,S)) - n))
-#            result -= np.squeeze(L1*(np.trace(np.dot(np.dot(D,S),self.constraints[0][1].L)) - n))
-#            result -= np.squeeze(L2*(np.trace(np.dot(np.dot(D,S),self.constraints[0][2].L)) - n))
-#            result -= np.squeeze(L3*(np.trace(np.dot(np.dot(D,S),self.constraints[0][3].L)) - n))
-##            for c,m in zip(constr, Mul):
-##                result += c.lagrange(D, m) #TODO: Remove dependency on Mu
-#            
-#        return result
     
     def energy_spin(self, Da, Db):
         self.sys.wfn.invalidate()
@@ -455,9 +392,10 @@ class Lagrangian(object):
             self.t1 = time.time()
         
         if self.isUT:
-            D = self.UTvecToMat(x)[:2]
+            args = self.UTvecToMat(x)
         else:
-            D = self.vecToMat(x)[:2]
+            args = self.vecToMat(x)
+        D = [args[0], args[self.nfixed_args/2]]
             
         self.e_hist.append(self.energy_spin(*D))
             
