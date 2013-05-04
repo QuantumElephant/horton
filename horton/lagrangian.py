@@ -266,11 +266,11 @@ class Lagrangian(object):
                 result[0]+= con.D_gradient(da, mul)
                 result.append(con.self_gradient(da))
             elif con.select == "beta":
-                result[1]+= con.D_gradient(db, mul)
+                result[self.nfixed_args/2]+= con.D_gradient(db, mul)
                 result.append(con.self_gradient(db))
             elif con.select == "add" or con.select == "diff":
                 result[0]+= con.D_gradient(da, mul)
-                result[1]+= con.D_gradient(db, mul)
+                result[self.nfixed_args/2]+= con.D_gradient(db, mul)
                 if con.select == "add":
                     result.append(con.self_gradient(da) + con.self_gradient(db))
                 else:
