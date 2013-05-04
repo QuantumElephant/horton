@@ -1,4 +1,5 @@
 from horton.newton_rewrite import NewtonKrylov
+from horton.gbasis.cext import GBasis
 from horton import *
 import numpy as np
 import scipy as scp
@@ -155,64 +156,14 @@ def calc_shapes(*args):
         shapes.append(i.shape[0])
     return shapes
 
-def project(origSys, origBasisName, projectedBasisName, *args):
-    #assert that atoms are defined in both basis sets
-    for i in [origBasisName, projectedBasisName]:
-        System(origSys.coordinates, origSys.numbers, i)
+def project(orig_sys, proj_sys, *args):
+    new_basis = horton.gbasis.cext.GOBasis.concatenate(orig_sys.obasis, proj_sys.obasis)
+    mixed_sys = System(orig_sys.coordinates, orig_sys.numbers, obasis = new_basis)
+    mixed_S = mixed_sys.get_overlap()._array 
+    orig_S = orig_sys.get_overlap()._array
     
-    #generate combined basis projection
-    mappingBasis = "projection_hack"
-    with open(context.get_fn("basis/"+origBasisName.lower()+".nwchem")) as fh:
-        origBasis = fh.read()
-    with open(context.get_fn("basis/"+projectedBasisName.lower()+".nwchem")) as fh:
-        projectedBasis = fh.read()
-    with open(context.get_fn("basis/"+mappingBasis.lower()+".nwchem"),'w') as fh:
-        projectedBasis = projectedBasis.replace("BASIS \"ao basis\" PRINT", " ")
-        combinedBasis = origBasis.replace("END", projectedBasis)
-#         print combinedBasis
-        fh.write(combinedBasis)
-        
-    #Calculate sizes of new and old atomic basis
-    projAtomBasis = [0]
-    for i in origSys.numbers:
-        atom_sys = System(np.zeros((1,3)), np.array([i]), obasis=mappingBasis)
-        atom_sys.init_wfn(restricted=False)
-        projAtomBasis.append(atom_sys.get_overlap()._array.shape[0])
-    projAtomBasis = np.cumsum(projAtomBasis)
-    
-    origAtomBasis = []
-    for i in origSys.numbers:
-        atom_sys = System(np.zeros((1,3)), np.array([i]), obasis=origBasisName)
-        atom_sys.init_wfn(restricted=False)
-        origAtomBasis.append(atom_sys.get_overlap()._array.shape[0])
-    
-    #Create new basis for molecule
-    projectedSys = System(origSys.coordinates, origSys.numbers, obasis=mappingBasis)
-    sProjAtomOrdered = projectedSys.get_overlap()._array
-    
-    #Convert from atom ordered to basis set ordered by rows then by columns 
-    sOrig = origSys.get_overlap()._array
-    sProjSmColPermuted = []
-    sProjLgColPermuted = []
-    for i,j,jNext in zip(origAtomBasis, projAtomBasis[:-1], projAtomBasis[1:]):
-        sProjSmColPermuted.append(sProjAtomOrdered[:, j:j+i])
-        sProjLgColPermuted.append(sProjAtomOrdered[:, j+i:jNext])
-    
-    sProjAtomOrdered = np.hstack(sProjSmColPermuted + sProjLgColPermuted)
-    
-    sProjSmColPermuted = []
-    sProjLgColPermuted = []
-    for i,j,jNext in zip(origAtomBasis, projAtomBasis[:-1], projAtomBasis[1:]):
-        sProjSmColPermuted.append(sProjAtomOrdered[j:j+i,:])
-        sProjLgColPermuted.append(sProjAtomOrdered[j+i:jNext,:])
-    
-    sProj = np.vstack(sProjSmColPermuted + sProjLgColPermuted)
-#     print sProj
-    
-    #Project elements onto new basis
-    sOrigProj = sProj[:sOrig.shape[0], sOrig.shape[1]:]
-#     sProjInv = np.linalg.inv(sProj[sOrig.shape[0]:, sOrig.shape[1]:])
-    sProjInv = np.linalg.pinv(sProj[sOrig.shape[0]:, sOrig.shape[1]:])
+    rect_S = mixed_S[:orig_S.shape[0], orig_S.shape[1]:]
+    proj_inv_S = np.linalg.pinv(mixed_S[orig_S.shape[0]:, orig_S.shape[1]:])
      
     result = []
     for i in args:
@@ -221,7 +172,7 @@ def project(origSys, origBasisName, projectedBasisName, *args):
             result.append(i)
             continue
         
-        result.append(reduce(np.dot,[sProjInv,sOrigProj.T,i,sOrigProj,sProjInv]))
+        result.append(reduce(np.dot,[proj_inv_S,rect_S.T,i,rect_S,proj_inv_S]))
     return result
 
 def normalize_D(*args):

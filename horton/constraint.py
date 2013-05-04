@@ -23,15 +23,18 @@ from horton import *
 import numpy as np
 
 class Constraint(object):
-    def __init__(self, sys, C, L, CFinal = None, steps = 10):
+    def __init__(self, sys, C, L, C_init = None, D = None, steps = 10):
         self.sys = sys
         self.S = sys.get_overlap()._array #don't have lg.toNumpy() yet.
-#        self.S = np.eye(7)
-        self.C = C
         self.L = L #a list or a single element
-        self.CFinal = CFinal
-        if CFinal is not None:
-            self.steps_array = np.linspace(C, CFinal, steps)[1:]
+        self.C_init = C_init
+        if D is not None and C_init is None:
+            C_init = np.trace(reduce(np.dot,[L,self.S,D]))
+        if C_init is not None:
+            self.steps_array = np.linspace(C_init, C, steps)[1:]
+            self.C = C_init
+        else:
+            self.C = C
         
     def lagrange(self,D, Mul):
         raise NotImplementedError
@@ -47,7 +50,7 @@ class Constraint(object):
         return operator
     
     def next(self):
-        if self.CFinal is None or self.steps_array.size == 0:
+        if self.C_init is None or self.steps_array.size == 0:
             return False
         print "Setting old C: " +str(self.C)
         self.C = self.steps_array[0]
@@ -74,9 +77,9 @@ class LinearConstraint(Constraint):
         return -Mul*0.5*(SL + SL.T) #Should this always be negative?
     
 class QuadraticConstraint(Constraint):
-    def __init__(self, sys, C, L, CFinal = None, steps = 10):
+    def __init__(self, sys, C, L, C_init = None, steps = 10):
         assert len(L) == 2
-        super(QuadraticConstraint, self).__init__(sys, C/2., L, CFinal/2., steps)
+        super(QuadraticConstraint, self).__init__(sys, C/2., L, C_init/2., steps)
     def lagrange(self, D, mul):
         self.S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
         P = np.dot(self.S,D)

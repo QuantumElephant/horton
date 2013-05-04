@@ -21,8 +21,6 @@ class Lagrangian(object):
         lenConA = len(constraints[0])
         lenConB = len(constraints[1])
         
-        
-        
         self.shapes = shapes
         if len(shapes) - lenConA - lenConB - lenSpinCon == 6:
             self.ifFrac = True
