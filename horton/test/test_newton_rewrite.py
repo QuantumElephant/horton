@@ -117,7 +117,7 @@ def calc_H2O():
 #    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b]], [L2_a])
 #     lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]], [L1_a,L2_a,Q1])
 #     lg = Lagrangian(system, ham, True, shapes, [[norm_a],[norm_b]], [Q1])
-    lg = Lagrangian(system, ham, True, shapes, [[norm_a],[norm_b]],[Q1])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], [Q1], ifFrac = True) 
 #    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b]]) #O:4/4
     
 #    norm = op.check_grad(Q1.reshapeX, Q1.combGrad, np.hstack([pro_da.ravel(),Q1_0]))
@@ -245,7 +245,7 @@ def test_HF_STO3G():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -286,7 +286,7 @@ def test_HF_STO3G_H2_4():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)system, ham,False, shapes, [[norm_a],[norm_b]])
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -328,7 +328,7 @@ def test_DFT_STO3G_H2_4():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -370,7 +370,7 @@ def test_DFT_STO3G_Frac_H2_4():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -410,7 +410,7 @@ def test_HF_321G():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -452,7 +452,7 @@ def test_HF_631G():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -494,7 +494,7 @@ def test_DFT_STO3G():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -536,7 +536,7 @@ def test_DFT_321G():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -576,7 +576,7 @@ def test_HF_STO3G_Frac():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -616,7 +616,7 @@ def test_HF_321G_Frac():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -658,7 +658,7 @@ def test_DFT_STO3G_Frac():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -700,7 +700,7 @@ def test_DFT_321G_Frac():
             continue
         shapes.append(i.shape[0])
 
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 
@@ -735,14 +735,7 @@ def test_stepped_constraints():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), N-0.5, 30)
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), N+0.5, 30)
 
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-    lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]])
+    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], ifFrac = True)
     
     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
 

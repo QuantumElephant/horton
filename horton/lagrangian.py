@@ -6,28 +6,30 @@ import pylab
 
 #TODO: profile to figure out a quick way of evaluating this function.
 class Lagrangian(object):
-    def __init__(self,sys,ham, ifHess, shapes,constraints,spinConstraints = None):
+    def __init__(self,sys,ham, constraints, spinConstraints = None, ifHess = False, ifFrac = False, ifRestricted = False):
         self.lf = sys.lf
         self.S = self.toNumpy(sys.get_overlap())
         self.constraints = constraints
         self.spinConstraints = spinConstraints
         self.ifHess = ifHess
+        self.ifFrac = ifFrac
+        self.ifRestricted = ifRestricted
+        
+        nbasis = sys.wfn.nbasis
+        if ifFrac:
+            print "Fractional occupations enabled"
+            base_args = [nbasis]*6
+        else:
+            print "Fractional occupations disabled"
+            base_args = [nbasis]*4
         
         if spinConstraints is not None:
-            lenSpinCon = len(spinConstraints)
+            len_spin_cons = len(spinConstraints)
         else:
-            lenSpinCon = 0
-            
-        lenConA = len(constraints[0])
-        lenConB = len(constraints[1])
+            len_spin_cons = []
+        cons_args = [1] * len(constraints[0] + constraints[1] + len_spin_cons)
         
-        self.shapes = shapes
-        if len(shapes) - lenConA - lenConB - lenSpinCon == 6:
-            self.ifFrac = True
-            print "Fractional occupations enabled"
-        else:
-            self.ifFrac = False
-            print "Fractional occupations disabled"
+        self.shapes = base_args + cons_args
         
         self.offsets = [0]
         
