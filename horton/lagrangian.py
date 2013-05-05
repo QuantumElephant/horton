@@ -9,7 +9,6 @@ class Lagrangian(object):
     def __init__(self,sys,ham, constraints, ifHess = False, isFrac = False, isRestricted = False):
         self.sys = sys
         self.ham = ham
-        self.lf = sys.lf
         self.S = self.toNumpy(sys.get_overlap())
         self.constraints = constraints
         self.ifHess = ifHess
@@ -32,8 +31,8 @@ class Lagrangian(object):
         
         self.offsets = [0]
         
-        self.fock_alpha = self.lf.create_one_body(self.shapes[0])
-        self.fock_beta = self.lf.create_one_body(self.shapes[1])
+        self.fock_alpha = self.sys.lf.create_one_body(self.shapes[0])
+        self.fock_beta = self.sys.lf.create_one_body(self.shapes[1])
             
         #debugging
         self.e_hist = []
@@ -60,7 +59,7 @@ class Lagrangian(object):
         result = []
         for i in args:
             assert isinstance(i,np.ndarray)
-            temp = self.lf.create_one_body(i.shape[0])
+            temp = self.sys.lf.create_one_body(i.shape[0])
             temp._array = i
             result.append(temp)
             
