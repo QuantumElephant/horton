@@ -297,7 +297,7 @@ class Lagrangian(object):
         da = alpha_args[0]
         db = beta_args[0]
     
-        result = self.energy_spin(da, db)
+        result = self.energy(da, db)
         
         for i in (alpha_args, beta_args):
             if len(i) == 0:
@@ -328,7 +328,11 @@ class Lagrangian(object):
                 raise ValueError('The select argument must be alpha or beta or add or diff')
         return result
     
-    def energy_spin(self, Da, Db):
+    def energy_wrap(self, x):
+        args = self.matHelper.vecToMat(x)
+        return self.energy(args[0],args[self.nfixed_args/2])
+    
+    def energy(self, Da, Db):
         self.sys.wfn.invalidate()
         self.ham.invalidate()
         self.sys.wfn.update_dm("alpha", self.matHelper.toOneBody(Da))
@@ -339,16 +343,6 @@ class Lagrangian(object):
 #       print "The energy is " + str(result)
         
         return result
-    
-    def test_occ(self, D):
-        L = 0.5*np.ones_like(D)
-        idx = np.diag_indices_from(L)
-        L[idx] = 1
-        
-        P = np.dot(D.ravel(), self.S.ravel())
-        Na = np.dot(P.ravel(), L.ravel())
-        
-        return Na
     
     def callback_system(self, x, dummy2):
 #        self.occ_hist_a.append(self.sys.wfn.exp_alpha.occupations) #Not ordered
@@ -380,10 +374,7 @@ class Lagrangian(object):
             self.logNextIter = True
             self.t1 = time.time()
         
-        args = self.matHelper.vecToMat(x)
-        D = [args[0], args[self.nfixed_args/2]]
-            
-        self.e_hist.append(self.energy_spin(*D))
+        self.e_hist.append(self.energy_wrap(x))
             
         print "Energy is " + str(self.e_hist[-1])
             

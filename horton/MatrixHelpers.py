@@ -8,9 +8,9 @@ class MatrixHelpers(object):
         self.shapes = shapes
         self.offsets = self.calc_offsets()
         
-    def mat_to_vec(self, *args):
+    def matToVec(self, *args):
         raise NotImplementedError
-    def vec_to_mat(self, *args):
+    def vecToMat(self, *args):
         raise NotImplementedError
     def calc_offsets(self):
         raise NotImplementedError
