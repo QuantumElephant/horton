@@ -10,7 +10,7 @@ def calc_H2O():
     solver = NewtonKrylov()
 #    basis = '3-21G'
 #    basis = '6-31++G**'
-    system = System.from_file('H2_e.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/H2_e.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
 #    system = System.from_file(context.get_fn('test/water_sto3g_hf_g03.fchk'),context.get_fn('test/water_sto3g_hf_g03.log'),obasis='STO-3G')
@@ -176,7 +176,7 @@ def calc_H2O():
     
 #def test_UTconvert():
 #    basis = 'sto-3g' #CHANGE1
-#    system = System.from_file('water_equilim.xyz', obasis=basis)
+#    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
 #    system.init_wfn(charge=0, mult=1, restricted=False)
 #    
 #    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b = initialGuess.promol_orbitals(system, basis)
@@ -203,7 +203,7 @@ def calc_H2O():
 def Horton_H2O():
     basis = 'STO-3G'
 #    basis = '3-21G'
-    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     guess_hamiltonian_core(system)
 #  DFT  
@@ -221,7 +221,7 @@ def test_HF_STO3G():
     solver = NewtonKrylov()
 #    
     basis = 'sto-3g'
-    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
@@ -254,7 +254,7 @@ def test_HF_STO3G_H2_4():
     solver = NewtonKrylov()
 #    
     basis = 'sto-3g'
-    system = System.from_file('H2_4.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/H2_4.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
@@ -286,7 +286,7 @@ def test_HF_STO3G_H2_4():
 #     solver = NewtonKrylov()
 # #    
 #     basis = 'sto-3g'
-#     system = System.from_file('H2_4.xyz', obasis=basis)
+#     system = System.from_file(context.get_fn('test/H2_4.xyz'), obasis=basis)
 #     system.init_wfn(charge=0, mult=1, restricted=False)
 #     
 #     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
@@ -320,7 +320,7 @@ def test_DFT_STO3G_Frac_H2_4():
     solver = NewtonKrylov()
 #    
     basis = 'sto-3g'
-    system = System.from_file('H2_4.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/H2_4.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis, np.array([[1,-1,1]]))
@@ -355,7 +355,7 @@ def test_HF_321G():
     solver = NewtonKrylov()
 #    
     basis = '3-21G'
-    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
@@ -387,7 +387,7 @@ def test_HF_631G():
     solver = NewtonKrylov()
 #    
     basis = '6-31++G**'
-    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
@@ -420,7 +420,7 @@ def test_DFT_STO3G():
     solver = NewtonKrylov()
 #    
     basis = 'sto-3g'
-    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
@@ -454,7 +454,7 @@ def test_DFT_321G():
     solver = NewtonKrylov()
 #    
     basis = '3-21G'
-    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
@@ -488,7 +488,7 @@ def test_HF_STO3G_Frac():
     solver = NewtonKrylov()
 #    
     basis = 'sto-3g'
-    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
@@ -521,7 +521,7 @@ def test_HF_321G_Frac():
     solver = NewtonKrylov()
     
     basis = '3-21G'
-    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
@@ -554,7 +554,7 @@ def test_DFT_STO3G_Frac():
     solver = NewtonKrylov()
 #    
     basis = 'sto-3g'
-    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
@@ -589,7 +589,7 @@ def test_DFT_321G_Frac():
     solver = NewtonKrylov()
 #    
     basis = '3-21G'
-    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
@@ -623,7 +623,7 @@ def test_stepped_constraints():
     solver = NewtonKrylov()
 #    
     basis = 'sto-3g'
-    system = System.from_file('water_equilim.xyz', obasis=basis)
+    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis, ifCheat = True)
@@ -640,8 +640,8 @@ def test_stepped_constraints():
 
     args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), N-0.5, 30)
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), N+0.5, 30)
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), C_init=N, steps=30)
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), C_init=N, steps=30)
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
