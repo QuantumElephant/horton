@@ -150,6 +150,20 @@ def prep_D(lg, *args):
             result.append(2*i[ut_idx])
     return np.hstack(result)
 
+def generic_HF_calc(basis = 'sto-3g', file='test/water_equilim.xyz'):
+    system = System.from_file(context.get_fn(file), obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    ham = Hamiltonian(system, [HartreeFock()])
+    return system, ham
+    
+def generic_DFT_calc(basis = 'sto-3g', file='test/water_equilim.xyz', lda_term = 'c_vwn'):
+    system = System.from_file(context.get_fn(file), obasis=basis)
+    system.init_wfn(charge=0, mult=1, restricted=False)
+    grid = BeckeMolGrid(system, random_rotate=False)
+    libxc_term = LibXCLDATerm(lda_term) #vwn_5
+    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+    return system, ham
+
 def calc_shapes(*args):
     shapes = []
     for i in args:
