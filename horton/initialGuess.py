@@ -135,16 +135,19 @@ def promol_frac(sys, pro_da, pro_db):
     
     return pa, pb
     
-def prep_D(*args):
-    result = []
-    for i in args:
-        if i.size == 1:
-            result.append(i.squeeze())
-            continue
-        diag_idx = np.diag_indices_from(i)
-        ut_idx = np.triu_indices_from(i)
-        i[diag_idx] *= 0.5
-        result.append(2*i[ut_idx])
+def prep_D(lg, *args):
+    if not lg.isTriu:
+        result = [i.ravel() for i in args]
+    else:
+        result = []
+        for i in args:
+            if i.size == 1:
+                result.append(i.squeeze())
+                continue
+            diag_idx = np.diag_indices_from(i)
+            ut_idx = np.triu_indices_from(i)
+            i[diag_idx] *= 0.5
+            result.append(2*i[ut_idx])
     return np.hstack(result)
 
 def calc_shapes(*args):

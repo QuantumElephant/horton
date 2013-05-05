@@ -1,7 +1,5 @@
-from horton.newton_rewrite import NewtonKrylov
 from horton import *
 import numpy as np
-import scipy as scp
 import matplotlib.pyplot as plt
 
 np.set_printoptions(threshold = 2000)
@@ -98,44 +96,18 @@ def calc_H2O():
     Q1 = QuadraticConstraint(system, 0, [L1, L2])
     Q2 = QuadraticConstraint(system, 0, [L1, L2])
     
+#    lg = Lagrangian(system, ham, [norm_a, L1_a, L2_a, L3_a,norm_b, L1_b, L2_b, L3_b])
+#    lg = Lagrangian(system, ham,[L1_a, L2_a, L3_a,L1_b, L2_b, L3_b])
+#    lg = Lagrangian(system, ham, [norm_a, L1_a, Q1,norm_b, L1_b, Q1])
+#    lg = Lagrangian(system, ham, [norm_a, L1_a,norm_b, L1_b, L2_b])
+#     lg = Lagrangian(system, ham,[norm_a,norm_b])
+#    lg = Lagrangian(system, ham, [norm_a, L1_a, norm_b, L1_b, L2_a])
+#     lg = Lagrangian(system, ham, [norm_a,norm_b, L1_a,L2_a,Q1])
+#     lg = Lagrangian(system, ham, [norm_a, norm_b, Q1])
+    lg = Lagrangian(system, ham,[norm_a, norm_b, Q1], isFrac = True) 
+#     lg = Lagrangian(system, ham,[norm_a, L1_a, norm_b, L1_b]]) #O:4/4
     
-    
-    
-
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-
-#    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a, L2_a, L3_a],[norm_b, L1_b, L2_b, L3_b]])
-#    lg = Lagrangian(system, ham,True, shapes, [[L1_a, L2_a, L3_a],[L1_b, L2_b, L3_b]])
-#    lg = Lagrangian(system, ham, True, shapes, [[norm_a, L1_a, Q1],[norm_b, L1_b, Q1]])
-#    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b, L2_b]])
-#     lg = Lagrangian(system, ham,True, shapes, [[norm_a],[norm_b]])
-#    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b]], [L2_a])
-#     lg = Lagrangian(system, ham,False, shapes, [[norm_a],[norm_b]], [L1_a,L2_a,Q1])
-#     lg = Lagrangian(system, ham, True, shapes, [[norm_a],[norm_b]], [Q1])
-    lg = Lagrangian(system, ham,[[norm_a],[norm_b]], [Q1], isFrac = True) 
-#    lg = Lagrangian(system, ham,True, shapes, [[norm_a, L1_a],[norm_b, L1_b]]) #O:4/4
-    
-#    norm = op.check_grad(Q1.reshapeX, Q1.combGrad, np.hstack([pro_da.ravel(),Q1_0]))
-
-#    fd = lg.fdiff_hess_grad_grad(np.hstack([pro_da.ravel(),Q1_0]),Q1.reshapeX)
-#    fdd = fd[:-1].reshape(7,7)
-##    assert (np.abs(fdd - fdd.T) < 1e-8).all()
-#    fdd = 0.5*(fdd + fdd.T)
-#    fd[:-1] = fdd.ravel()
-#    
-#    an = Q1.combGrad(np.hstack([pro_da.ravel(),Q1_0]))
-#    fdan =  fd - an
-#    fdan_norm = np.linalg.norm(fdan)
-#    assert fdan_norm < 1e-4, (fdan_norm, fd[np.abs(fd-an)>1e-5], an[np.abs(fd-an)>1e-5],[np.abs(fd-an)>1e-5])
-#    print norm
-    
-#    x0 = np.hstack(*args); lg.isUT = False; lg.full_offsets()
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args)
 
     lg.callback_system(x0, None)
 
@@ -143,14 +115,9 @@ def calc_H2O():
     print "The Energy is " + str(ham.compute_energy())
     lg.calc_occupations(x_star)
     
-    if lg.isUT:
-        print lg.UTvecToMat(x_star)
-#        np.savez("UT_xstar", lg.vecToMat(x_star))
-#        np.savetxt("jacobianFinished", lg.fdiff_hess_grad_x(x_star))
-    else:
-        print lg.vecToMat(x_star)
-#        np.savez("full_xstar", lg.vecToMat(x_star))
-#        np.savetxt("jacobianFinished", lg.fdiff_hess_grad_x(x_star))
+    print lg.matHelper.vecToMat(x_star)
+#     np.savez("UT_xstar", lg.matHelper.vecToMat(x_star))
+#     np.savetxt("jacobianFinished", lg.fdiff_hess_grad_x(x_star))
     
     system._wfn = None
     system.init_wfn(restricted=False)
@@ -189,7 +156,7 @@ def calc_H2O():
 #    
 #    ind = np.triu_indices(dm_a.shape[0])
 #    
-#    x0 = 2*np.hstack([pro_da[ind], pro_db[ind], pro_ba[ind], pro_bb[ind], pa[ind], pb[ind], 0.5*mua.squeeze(), 0.5*mub.squeeze()]); lg.isUT = True; lg.tri_offsets()
+#    x0 = 2*np.hstack([pro_da[ind], pro_db[ind], pro_ba[ind], pro_bb[ind], pa[ind], pb[ind], 0.5*mua.squeeze(), 0.5*mub.squeeze()]) 
 #    x0 = np.arange(x0.size)
 #    
 #    xOrig = cp.deepcopy(x0)
@@ -239,7 +206,7 @@ def test_HF_STO3G():
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
     
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args)
 
     print "start HF_STO3G"
     x_star = solver.solve(lg, x0)
@@ -272,7 +239,7 @@ def test_HF_STO3G_H2_4():
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
     
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args) 
 
     print "start HF_STO3G"
     x_star = solver.solve(lg, x0)
@@ -306,7 +273,7 @@ def test_HF_STO3G_H2_4():
 # 
 #     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
 #     
-#     x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+#     x0 = initialGuess.prep_D(lg, *args) 
 # 
 #     print "start HF_STO3G"
 #     x_star = solver.solve(lg, x0)
@@ -341,7 +308,7 @@ def test_DFT_STO3G_Frac_H2_4():
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args) 
 
     print "Start DFT_STO3G_Frac"
     x_star = solver.solve(lg, x0)
@@ -372,7 +339,7 @@ def test_HF_321G():
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
     
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args) 
 
     print "start HF_321G"
     x_star = solver.solve(lg, x0)
@@ -406,7 +373,7 @@ def test_HF_631G():
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
     
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args) 
 
     print "start HF_631G"
     x_star = solver.solve(lg, x0)
@@ -440,7 +407,7 @@ def test_DFT_STO3G():
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
     
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args)
 
     print "start DFT_STO3G"
     x_star = solver.solve(lg, x0)
@@ -474,7 +441,7 @@ def test_DFT_321G():
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
     
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args) 
 
     print "start DFT_321G"
     x_star = solver.solve(lg, x0)
@@ -507,7 +474,7 @@ def test_HF_STO3G_Frac():
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args) 
 
     print "start HF_STO3G_Frac"
     x_star = solver.solve(lg, x0)
@@ -540,7 +507,7 @@ def test_HF_321G_Frac():
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args) 
 
     print "Start HF_321G_Frac"
     x_star = solver.solve(lg, x0)
@@ -575,7 +542,7 @@ def test_DFT_STO3G_Frac():
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args) 
 
     print "Start DFT_STO3G_Frac"
     x_star = solver.solve(lg, x0)
@@ -610,7 +577,7 @@ def test_DFT_321G_Frac():
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args) 
 
     print "start DFT_321G_Frac"
     x_star = solver.solve(lg, x0)
@@ -645,7 +612,7 @@ def test_stepped_constraints():
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
-    x0 = initialGuess.prep_D(*args); lg.isUT = True; lg.tri_offsets()
+    x0 = initialGuess.prep_D(lg, *args) 
 
     print "Start DFT_STO3G_Frac"
     x_star = solver.fancy_solve(lg, x0)
