@@ -199,7 +199,7 @@ def test_HF_STO3G():
 #HF
     ham = Hamiltonian(system, [HartreeFock()])
 
-    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
+    args = [pro_da, pro_ba, pro_db, pro_bb, mua, mub]
 
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
@@ -467,7 +467,7 @@ def test_HF_STO3G_Frac():
 #HF
     ham = Hamiltonian(system, [HartreeFock()])
 
-    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+    args = [pro_da, pro_ba, pa, pro_db, pro_bb, pb, mua, mub]
 
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
@@ -475,6 +475,7 @@ def test_HF_STO3G_Frac():
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
     x0 = initialGuess.prep_D(lg, *args) 
+    lg.energy_wrap(x0)
 
     print "start HF_STO3G_Frac"
     x_star = solver.solve(lg, x0)
@@ -586,7 +587,7 @@ def test_DFT_321G_Frac():
     print "Computed E:" + str(ham.compute_energy())
     assert np.abs(ham.compute_energy() - -67.521923845983) < 1e-4 #KNOWN TO FAIL
 
-def test_stepped_constraints():
+def test_linear_stepped_constraints():
     solver = NewtonKrylov()
 #    
     basis = 'sto-3g'
@@ -599,16 +600,16 @@ def test_stepped_constraints():
     pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
     pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
 
-#     grid = BeckeMolGrid(system, random_rotate=False)
-#     
-#     libxc_term = LibXCLDATerm('c_vwn') #vwn_5
-#     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
-    ham = Hamiltonian(system, [HartreeFock()])
+    grid = BeckeMolGrid(system, random_rotate=False)
+     
+    libxc_term = LibXCLDATerm('c_vwn') #vwn_5
+    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+#     ham = Hamiltonian(system, [HartreeFock()])
 
-    args = [pro_da, pro_db, pro_ba, pro_bb, pa, pb, mua, mub]
+    args = [pro_da, pro_ba, pa, pro_db, pro_bb, pb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), C_init=N, steps=30)
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), C_init=N, steps=30)
+    norm_a = LinearConstraint(system, N+0.5, np.eye(dm_a.shape[0]), select="alpha", C_init=N, steps=50)
+    norm_b = LinearConstraint(system, N2-0.5, np.eye(dm_a.shape[0]), select="beta", C_init=N, steps=50)
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
@@ -619,9 +620,37 @@ def test_stepped_constraints():
     
     print "Actual E:" + str(73.6549343469) #NWCHEM
     print "Computed E:" + str(ham.compute_energy())
-    assert np.abs(ham.compute_energy() - -73.6549343469) < 1e-4
+#     assert np.abs(ham.compute_energy() - -73.6549343469) < 1e-4
+
+def test_quadratic_stepped_constraints():
+    solver = NewtonKrylov()
+    basis = "sto-3g"
+    sys, ham = initialGuess.generic_DFT_calc(basis = basis, lda_term = "c_vwn")
+    
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(sys, basis, ifCheat = True)
+    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
+    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(sys, pro_da, pro_db)
+    
+    args = [pro_da, pro_ba, pa, pro_db, pro_bb, pb, mua, mub]
+
+    norm_a = QuadraticConstraint(sys, N+0.5, [np.eye(dm_a.shape[0]), np.eye(dm_a.shape[0])], select="alpha", D=pro_da, steps=50)
+    norm_b = QuadraticConstraint(sys, N2-0.5, [np.eye(dm_a.shape[0]), np.eye(dm_a.shape[0])], select="beta", D=pro_db, steps=50)
+
+    lg = Lagrangian(sys, ham, [norm_a, norm_b], isFrac = True)
+    
+    x0 = initialGuess.prep_D(lg, *args) 
+
+    print "Start DFT_STO3G_Frac"
+    x_star = solver.fancy_solve(lg, x0)
+    
+    print "Actual E:" + str(73.6549343469) #NWCHEM
+    print "Computed E:" + str(ham.compute_energy())
+    
   
-# test_stepped_constraints()
+# test_linear_stepped_constraints()
+test_quadratic_stepped_constraints()
 # # calc_H2O()
 # # Horton_H2O()
 # test_HF_STO3G()
@@ -630,7 +659,7 @@ def test_stepped_constraints():
 # test_DFT_STO3G_Frac_H2_4()
 # test_HF_321G()
 # test_HF_631G()
-test_DFT_STO3G()
+# test_DFT_STO3G()
 # test_DFT_321G()
 # test_HF_STO3G_Frac()
 # test_HF_321G_Frac()

@@ -80,7 +80,7 @@ class Lagrangian(object):
         print "Stepping to next system"
         
         hasNext = False
-        for i in self.constraints[0] + self.constraints[1]:
+        for i in self.constraints:
             hasNext = i.next() or hasNext
         return hasNext
     
