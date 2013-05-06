@@ -3,6 +3,7 @@ from horton import *
 import numpy as np
 import scipy as scp
 import matplotlib.pyplot as plt
+from horton.guess import guess_hamiltonian_core
 
 def test_projection():
     xyzFile = context.get_fn('test/water_equilim.xyz')
@@ -28,11 +29,35 @@ def test_projection():
     
     for i,j in zip(old_occ, new_occ):
         assert np.abs(i-j) < 1e-2, (i,j)
-        
-#     for i,j in ((pro_da,result[0]),(pro_db, result[1])):
-#         ni = np.linalg.norm(i)
-#         nj = np.linalg.norm(j)
-#         assert np.abs(ni-nj)<1e-2, (ni,nj)
 
+def test_mcPurify():
+    system, ham, basis = initialGuess.generic_DFT_calc()
+    S = system.get_overlap()._array
+    guess_hamiltonian_core(system)
+    D = system.wfn.dm_alpha._array
+    
+    Eigval_before = np.linalg.eigvalsh(np.dot(S,D))
+    avgEigval_before = np.average(np.abs(Eigval_before -0.5))
+    
+    D = initialGuess.mcPurify(system, D)[0]
+    
+    Eigval_after = np.linalg.eigvalsh(np.dot(S,D))
+    avgEigval_after = np.average(np.abs(Eigval_after -0.5))
+    
+    assert avgEigval_after > avgEigval_before
+
+def test_normalize_D():
+    system, ham, basis = initialGuess.generic_DFT_calc()
+    S = system.get_overlap()._array
+    guess_hamiltonian_core(system)
+    D = system.wfn.dm_alpha._array
+    
+    newD = normalize_D(system, D, 5)
+    
+    N = np.dot(system.get_overlap()._array.ravel(), newD.ravel())
+    assert np.abs(N - 5) < 1e-8
+
+# test_normalize_D()
+# test_mcPurify()
 # test_projection()
 

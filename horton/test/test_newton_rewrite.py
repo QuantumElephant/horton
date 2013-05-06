@@ -1,8 +1,31 @@
 from horton import *
 import numpy as np
 import matplotlib.pyplot as plt
+from horton.test import common
 
 np.set_printoptions(threshold = 2000)
+
+def test_check_grad():
+    system, ham, basis = initialGuess.generic_DFT_calc()
+    S = system.get_overlap()._array
+
+    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
+    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
+    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
+
+    args = [pro_da, pro_ba, pa, pro_db, pro_bb, pb, mua, mub]
+    
+    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
+    
+    x0 = initialGuess.prep_D(lg, *args)
+    
+    dxs = [np.random.uniform(-0.5, 0.5, len(x0)) for i in np.arange(100)]
+    
+    common.check_delta(lg.lagrange_wrap, lg.grad_wrap, x0, dxs)
 
 def calc_H2O():
     solver = NewtonKrylov()
@@ -624,8 +647,7 @@ def test_linear_stepped_constraints():
 
 def test_quadratic_stepped_constraints():
     solver = NewtonKrylov()
-    basis = "sto-3g"
-    sys, ham = initialGuess.generic_DFT_calc(basis = basis, lda_term = "c_vwn")
+    sys, ham, basis = initialGuess.generic_DFT_calc(lda_term = "c_vwn")
     
     dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(sys, basis, ifCheat = True)
     occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
@@ -649,8 +671,9 @@ def test_quadratic_stepped_constraints():
     print "Computed E:" + str(ham.compute_energy())
     
   
+test_check_grad()
 # test_linear_stepped_constraints()
-test_quadratic_stepped_constraints()
+# test_quadratic_stepped_constraints()
 # # calc_H2O()
 # # Horton_H2O()
 # test_HF_STO3G()

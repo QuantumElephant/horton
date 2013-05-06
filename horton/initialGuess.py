@@ -1,6 +1,6 @@
 from horton.newton_rewrite import NewtonKrylov
-from horton.gbasis.cext import GBasis
-from horton import *
+from horton.gbasis.cext import GOBasis
+from horton import System, guess_hamiltonian_core, Hamiltonian, converge_scf_oda, HartreeFock, Hartree, BeckeMolGrid, LibXCLDATerm, context
 import numpy as np
 import scipy as scp
 import matplotlib.pyplot as plt
@@ -154,7 +154,7 @@ def generic_HF_calc(basis = 'sto-3g', filename='test/water_equilim.xyz'):
     system = System.from_file(context.get_fn(filename), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     ham = Hamiltonian(system, [HartreeFock()])
-    return system, ham
+    return system, ham, basis
     
 def generic_DFT_calc(basis = 'sto-3g', filename='test/water_equilim.xyz', lda_term = 'c_vwn'):
     system = System.from_file(context.get_fn(filename), obasis=basis)
@@ -162,7 +162,7 @@ def generic_DFT_calc(basis = 'sto-3g', filename='test/water_equilim.xyz', lda_te
     grid = BeckeMolGrid(system, random_rotate=False)
     libxc_term = LibXCLDATerm(lda_term) #vwn_5
     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
-    return system, ham
+    return system, ham, basis
 
 def calc_shapes(*args):
     shapes = []
@@ -174,7 +174,7 @@ def calc_shapes(*args):
     return shapes
 
 def project(orig_sys, proj_sys, *args):
-    new_basis = horton.gbasis.cext.GOBasis.concatenate(orig_sys.obasis, proj_sys.obasis)
+    new_basis = GOBasis.concatenate(orig_sys.obasis, proj_sys.obasis)
     mixed_sys = System(orig_sys.coordinates, orig_sys.numbers, obasis = new_basis)
     mixed_S = mixed_sys.get_overlap()._array 
     orig_S = orig_sys.get_overlap()._array
@@ -192,18 +192,16 @@ def project(orig_sys, proj_sys, *args):
         result.append(reduce(np.dot,[proj_inv_S,rect_S.T,i,rect_S,proj_inv_S]))
     return result
 
-def normalize_D(*args):
-    result = []
-    for i in args:
-        n = np.sum(i)
-        print "initial normalization: " + str(n)
-        result.append(i/n)
-        assert result[-1].sum()-1 < 1e-8
+def normalize_D(sys, D, N):
+    S = sys.get_overlap()._array
+    n = np.dot(S.ravel(), D.ravel())
+    print "initial normalization: " + str(n)
+    result = D*N/n
     return result
 
-def mcPurify(*args):
+def mcPurify(sys, *args):
     result = []
     for i in args:
         assert isinstance(i,np.ndarray)
-        result.append(3*np.power(i,2) - 2*np.power(i,3))
+        result.append(3*np.power(np.dot(sys.get_overlap()._array, i),2) - 2*np.power(np.dot(sys.get_overlap()._array, i),3))
     return result
