@@ -632,7 +632,9 @@ def test_linear_stepped_constraints():
     args = [pro_da, pro_ba, pa, pro_db, pro_bb, pb, mua, mub]
 
     norm_a = LinearConstraint(system, N+0.5, np.eye(dm_a.shape[0]), select="alpha", C_init=N, steps=50)
-    norm_b = LinearConstraint(system, N2-0.5, np.eye(dm_a.shape[0]), select="beta", C_init=N, steps=50)
+    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
+
+#     norm_b = LinearConstraint(system, N2-0.5, np.eye(dm_a.shape[0]), select="beta", C_init=N, steps=50)
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
     
@@ -671,8 +673,8 @@ def test_quadratic_stepped_constraints():
     print "Computed E:" + str(ham.compute_energy())
     
   
-test_check_grad()
-# test_linear_stepped_constraints()
+# test_check_grad()
+test_linear_stepped_constraints()
 # test_quadratic_stepped_constraints()
 # # calc_H2O()
 # # Horton_H2O()
@@ -686,5 +688,5 @@ test_check_grad()
 # test_DFT_321G()
 # test_HF_STO3G_Frac()
 # test_HF_321G_Frac()
-# # test_DFT_STO3G_Frac()
+# test_DFT_STO3G_Frac()
 # # test_DFT_321G_Frac()

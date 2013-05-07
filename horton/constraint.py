@@ -44,7 +44,7 @@ class Constraint(object):
         return operator
     
     def next(self):
-        if self.steps_array is None or self.steps_array.size == 0:
+        if not hasattr(self, 'steps_array') or self.steps_array.size == 0:
             return False
         print "Setting old C: " +str(self.C)
         self.C = self.steps_array[0]
