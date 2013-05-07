@@ -396,7 +396,7 @@ class Lagrangian(object):
     def calc_occupations(self, x):
         args = self.matHelper.vecToMat(x)
         
-        for i in (args[0], args[1]):
+        for i in (args[0], args[self.nfixed_args/2]):
             ds = np.dot(i,self.S)
             print np.diag(ds)
 #            for c in self.constraints[key]:
