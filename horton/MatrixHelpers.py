@@ -14,13 +14,18 @@ class MatrixHelpers(object):
         raise NotImplementedError
     def calc_offsets(self):
         raise NotImplementedError
+    def new_one_body(self):
+        return self.sys.lf.create_one_body(self.shapes[0])
     def toOneBody(self, *args):
         result = []
         for i in args:
             assert isinstance(i,np.ndarray)
-            temp = self.sys.lf.create_one_body(i.shape[0])
-            temp._array = i
-            result.append(temp)
+            if i.size == 1:
+                result.append(i)
+            else:
+                temp = self.sys.lf.create_one_body(i.shape[0])
+                temp._array = i
+                result.append(temp)
             
         if len(result) == 1:
             return result[0]
@@ -29,8 +34,10 @@ class MatrixHelpers(object):
     def toNumpy(self, *args):
         result = []
         for i in args:
-            assert isinstance(i, DenseOneBody)
-            result.append(i._array)
+            if isinstance(i, DenseOneBody):
+                result.append(i._array)
+            else:
+                result.append(i)
          
         if len(result) == 1:
             return result[0]   

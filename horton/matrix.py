@@ -615,6 +615,32 @@ class DenseOneBody(OneBody):
         '''Correct for different sign conventions of the basis functions.'''
         self._array *= signs
         self._array *= signs.reshape(-1,1)
+    
+    def isymmetrize(self):
+        self._array = 0.5*(self._array + self._array.T)    
+    
+    def __add__(self, other):
+        result = DenseOneBody(self.nbasis)
+        result._array = self._array + other._array
+        return result
+    
+    def __sub__(self, other):
+        result = DenseOneBody(self.nbasis)
+        result._array = self._array - other._array
+        return result
+    
+    def __mul__(self, other):
+        if isinstance(other, DenseOneBody):
+            result = DenseOneBody(self.nbasis)
+            result._array = np.dot(self._array, other._array)
+            return result
+        else:
+            assert not isinstance(other, np.ndarray)
+            result = DenseOneBody(self.nbasis)
+            result._array = self._array
+            result.iscale(other)
+            return result
+    
 
 
 class DenseTwoBody(LinalgObject):
