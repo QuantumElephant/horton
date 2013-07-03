@@ -354,6 +354,7 @@ class Lagrangian(object):
                 
                 dLdP = self.matHelper.new_one_body()
                 dLdP.iadd(PB + BP)
+                np.dot(np.asarray(P._array.todense()), np.asarray(P._array.todense()))
                 dLdP.isymmetrize() 
 #                print "dLdP", dLdP
         
@@ -443,10 +444,10 @@ class Lagrangian(object):
     def energy(self, Da, Db):
         self.sys.wfn.invalidate()
         self.ham.invalidate()
-        self.sys.wfn.update_dm("alpha", self.matHelper.toOneBody(Da))
-        self.sys.wfn.update_dm("beta", self.matHelper.toOneBody(Db))
-        self.sys.wfn.update_dm("full", self.matHelper.toOneBody(Da+Db))
-#       self.sys.wfn.update_dm("spin", self.matHelper.toOneBody(Da-Db))
+        self.sys.wfn.update_dm("alpha", Da)
+        self.sys.wfn.update_dm("beta", Db)
+        self.sys.wfn.update_dm("full", Da+Db)
+#       self.sys.wfn.update_dm("spin", Da-Db)
         result = self.ham.compute_energy()
 #       print "The energy is " + str(result)
         
@@ -496,21 +497,21 @@ class Lagrangian(object):
         
 #         sym_args = self.matHelper.symmetrize(*args)
 #         self.matHelper.check_sym(*sym_args)
-        grad_orig = self.calc_grad(*args)
+#         grad_orig = self.calc_grad(*args)
         
-        args = self.matHelper.toOneBody(*args) #Where is the non-locality coming from?
+#         args = self.matHelper.toOneBody(*args) #Where is the non-locality coming from?
         
 #         grad = self.calc_grad(*sym_args)
         grad = self.calc_grad_onebody(*args)
         
-        grad = self.matHelper.toNumpy(*grad)
-        self.matHelper.check_sym(*grad)
+#         grad = self.matHelper.toNumpy(*grad)
+#         self.matHelper.check_sym(*grad)
         
         result = self.matHelper.matToVec(*grad)
         
-        self.matHelper.check_sym(*grad_orig)
-        result_orig = self.matHelper.matToVec(*grad_orig)
-        assert (np.abs(result_orig - result) < 1e-13).all(), (result_orig - result)
+#         self.matHelper.check_sym(*grad_orig)
+#         result_orig = self.matHelper.matToVec(*grad_orig)
+#         assert (np.abs(result_orig - result) < 1e-13).all(), (result_orig - result)
         
         return result
     

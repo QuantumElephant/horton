@@ -466,7 +466,12 @@ class System(object):
     def get_overlap(self):
         overlap, new = self.cache.load('olp', alloc=self.lf.create_one_body, tags='o')
         if new:
+            overlap = self.lf.create_one_body(self.wfn.nbasis)
+            
+            overlap = overlap._to_dense_one_body()
             self.obasis.compute_overlap(overlap)
+            overlap = self.lf.create_one_body_from(overlap._to_numpy())
+            
             self.update_chk('cache.olp')
         return overlap
 
@@ -474,7 +479,12 @@ class System(object):
     def get_kinetic(self):
         kinetic, new = self.cache.load('kin', alloc=self.lf.create_one_body, tags='o')
         if new:
+            kinetic = self.lf.create_one_body(self.wfn.nbasis)
+            
+            kinetic = kinetic._to_dense_one_body()
             self.obasis.compute_kinetic(kinetic)
+            kinetic = self.lf.create_one_body_from(kinetic._to_numpy())
+            
             self.update_chk('cache.kin')
         return kinetic
 
@@ -482,8 +492,13 @@ class System(object):
     def get_nuclear_attraction(self):
         nuclear_attraction, new = self.cache.load('na', alloc=self.lf.create_one_body, tags='o')
         if new:
+            nuclear_attraction = self.lf.create_one_body(self.wfn.nbasis)
             # TODO: ghost atoms and extra charges
+            
+            nuclear_attraction = nuclear_attraction._to_dense_one_body()
             self.obasis.compute_nuclear_attraction(self.numbers.astype(float), self.coordinates, nuclear_attraction)
+            nuclear_attraction = self.lf.create_one_body_from(nuclear_attraction._to_numpy())
+            
             self.update_chk('cache.na')
         return nuclear_attraction
 
@@ -569,6 +584,7 @@ class System(object):
         elif rhos.shape != (points.shape[0],):
             raise TypeError('The shape of the output array is wrong')
         dm = self.wfn.get_dm(select)
+        dm = dm._to_dense_one_body()
         self.obasis.compute_grid_density_dm(dm, points, rhos, epsilon)
         return rhos
 
@@ -601,7 +617,10 @@ class System(object):
         elif gradrhos.shape != (points.shape[0],3):
             raise TypeError('The shape of the output array is wrong')
         dm = self.wfn.get_dm(select)
+        
+        dm = dm._to_dense_one_body()
         self.obasis.compute_grid_gradient_dm(dm, points, gradrhos)
+        
         return gradrhos
 
     @timer.with_section('Hartree grid')
@@ -633,7 +652,10 @@ class System(object):
         elif hartree.shape != (points.shape[0],):
             raise TypeError('The shape of the output array is wrong')
         dm = self.wfn.get_dm(select)
+        
+        dm = dm._to_dense_one_body()
         self.obasis.compute_grid_hartree_dm(dm, points, hartree)
+        
         return hartree
 
     @timer.with_section('ESP grid')
@@ -665,7 +687,10 @@ class System(object):
         elif esp.shape != (points.shape[0],):
             raise TypeError('The shape of the output array is wrong')
         dm = self.wfn.get_dm(select)
+        
+        dm = dm._to_dense_one_body()
         self.obasis.compute_grid_hartree_dm(dm, points, esp)
+        
         esp *= -1
         compute_grid_nucpot(self.numbers, self.coordinates, points, esp)
         return esp
@@ -673,12 +698,16 @@ class System(object):
     @timer.with_section('Fock grid dens')
     def compute_grid_density_fock(self, points, weights, pots, fock):
         '''See documentation self.obasis.compute_grid_density_fock'''
+        fock._update_dense()
         self.obasis.compute_grid_density_fock(points, weights, pots, fock)
+        fock._update_array()
 
     @timer.with_section('Fock grid grad')
     def compute_grid_gradient_fock(self, points, weights, pots, fock):
         '''See documentation self.obasis.compute_grid_gradient_fock'''
+        fock._update_dense()
         self.obasis.compute_grid_gradient_fock(points, weights, pots, fock)
+        fock._update_array()
 
     def compute_nucnuc(self):
         '''Compute interaction energy of the nuclei'''

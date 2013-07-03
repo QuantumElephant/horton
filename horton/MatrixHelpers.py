@@ -1,6 +1,7 @@
 import numpy as np
 import pylab
-from horton.matrix import DenseOneBody
+# from horton.matrix import DenseOneBody
+from horton.matrix import *
 
 class MatrixHelpers(object):
     def __init__(self, sys, shapes):
@@ -16,6 +17,8 @@ class MatrixHelpers(object):
         raise NotImplementedError
     def new_one_body(self):
         return self.sys.lf.create_one_body(self.shapes[0])
+    def new_one_body_from(self, A):
+        return self.sys.lf.create_one_body_from(A)
     def toOneBody(self, *args):
         result = []
         for i in args:
@@ -63,7 +66,7 @@ class MatrixHelpers(object):
                 print "sym:", args
             assert (symerror < 1e-8).all(), (np.vstack(np.where(symerror > 1e-8)).T, symerror,np.sort(symerror, None)[-20:], self.plot_mat(symerror > 1e-8))
 
-class FullMatrixHelpers(MatrixHelpers):
+class FullMatrixHelpersOLD(MatrixHelpers):
     def calc_offsets(self):
         result = [0] + [n**2 for n in self.shapes]
         result = np.cumsum(result)
@@ -80,7 +83,27 @@ class FullMatrixHelpers(MatrixHelpers):
             args.append(x[self.offsets[i]:self.offsets[i+1]].reshape([self.shapes[i], self.shapes[i]]))
         return args
 
-class TriuMatrixHelpers(MatrixHelpers):
+class FullMatrixHelpers(MatrixHelpers):
+    def calc_offsets(self):
+        result = [0] + [n**2 for n in self.shapes]
+        result = np.cumsum(result)
+        return result
+    
+    def matToVec(self, *args):
+        result = [i.ravel() for i in args]    
+        x = np.hstack(result)
+        return x
+    
+    def vecToMat(self,x):
+        args = []
+        for i in np.arange(len(self.offsets)-1):
+            temp = x[self.offsets[i]:self.offsets[i+1]].reshape([self.shapes[i], self.shapes[i]])
+            if temp.size > 1: #not a singleton
+                temp = self.new_one_body_from(temp)
+            args.append(temp)
+        return args
+
+class TriuMatrixHelpersOLD(MatrixHelpers):
     def calc_offsets(self):
         result = [0] + [int((n + 1)*n/2.) for n in self.shapes]
         result = np.cumsum(result)
@@ -114,4 +137,36 @@ class TriuMatrixHelpers(MatrixHelpers):
             temp = 0.5*(ut + ut.T)
             args.append(temp)
         self.check_sym(*args)
+        return args
+
+class TriuMatrixHelpers(MatrixHelpers):
+    def calc_offsets(self):
+        result = [0] + [int((n + 1)*n/2.) for n in self.shapes]
+        result = np.cumsum(result)
+        return result
+        
+    def matToVec(self, *args):
+        """ Takes an array of dense matrices and returns a vector of the upper triangular portions.
+            Does not check for symmetry first.
+        """
+        result = []
+        for i in args:
+            if not isinstance(i, OneBody):
+                result.append(i.squeeze())
+            else:
+                result.append(i.ravel())
+        x = np.hstack(result)
+        return x
+    
+    def vecToMat(self,x):
+        args = []
+        for i in np.arange(len(self.offsets)-1):
+            if self.shapes[i] == 1: #try to remove me
+                args.append(x[self.offsets[i]:self.offsets[i+1]])
+            else:
+                temp = self.new_one_body()
+                vec = 0.5*x[self.offsets[i]:self.offsets[i+1]]
+                temp.set_elements_from_vec(vec)
+                temp.iscale_diag(2)
+                args.append(temp)
         return args

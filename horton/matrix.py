@@ -51,6 +51,7 @@
 
 
 import numpy as np
+import scipy.sparse as spr
 
 from horton.log import log
 
@@ -84,6 +85,9 @@ class LinalgFactory(object):
         raise NotImplementedError
 
     def create_one_body(self, nbasis=None):
+        raise NotImplementedError
+    
+    def create_one_body_from(self, A):
         raise NotImplementedError
 
     def create_two_body(self, nbasis=None):
@@ -181,6 +185,11 @@ class DenseLinalgFactory(LinalgFactory):
     def create_one_body(self, nbasis=None):
         nbasis = nbasis or self._default_nbasis
         return DenseOneBody(nbasis)
+    
+    def create_one_body_from(self, A):
+        result = DenseOneBody(A.shape[0])
+        result._array = A
+        return result
 
     def _check_one_body_init_args(self, one_body, nbasis=None):
         nbasis = nbasis or self._default_nbasis
@@ -215,8 +224,8 @@ class DenseLinalgFactory(LinalgFactory):
            expansion
                 An expansion object containing the current orbitals/eginvectors.
         """
-        errors = np.dot(fock._array, expansion.coeffs) \
-                 - expansion.energies*np.dot(overlap._array, expansion.coeffs)
+        errors = np.dot(fock._to_numpy(), expansion.coeffs) \
+                 - expansion.energies*np.dot(overlap._to_numpy(), expansion.coeffs) #TODO: figure out how to remove direct np operations
         return np.sqrt((errors**2).mean())
 
 
@@ -235,9 +244,9 @@ class DenseLinalgFactory(LinalgFactory):
         """
         from scipy.linalg import eigh
         if overlap is None:
-            return eigh(fock._array)
+            return eigh(fock._to_numpy())
         else:
-            return eigh(fock._array, overlap._array)
+            return eigh(fock._to_numpy(), overlap._to_numpy())
 
     def get_memory_one_body(self, nbasis=None):
         return nbasis**2*8
@@ -375,9 +384,9 @@ class DenseExpansion(LinalgObject):
                 dm are overwritten.
         """
         if factor is None:
-            dm._array[:] = np.dot(self._coeffs*self.occupations, self._coeffs.T)
+            dm.assign_from(np.dot(self._coeffs*self.occupations, self._coeffs.T))
         else:
-            dm._array[:] += factor*np.dot(self._coeffs*self.occupations, self._coeffs.T)
+            dm += factor*np.dot(self._coeffs*self.occupations, self._coeffs.T)
 
     def derive_from_fock_matrix(self, fock, overlap):
         '''Diagonalize a Fock matrix to obtain orbitals and energies'''
@@ -526,6 +535,8 @@ class DenseOneBody(OneBody):
         """
         self._array = np.zeros((nbasis, nbasis), float)
         log.mem.announce(self._array.nbytes)
+        
+        self._dense_array = self._array
 
     def __del__(self):
         if log is not None:
@@ -565,7 +576,11 @@ class DenseOneBody(OneBody):
 
     def assign(self, other):
         if not isinstance(other, DenseOneBody):
-            raise TypeError('The other object must also be DenseOneBody instance.')
+            try:
+                other = other.toDenseOneBody()
+            except AttributeError:
+                print "the other object must have a toDenseOneBody method"
+                assert False
         self._array[:] = other._array
 
     def copy(self):
@@ -637,12 +652,40 @@ class DenseOneBody(OneBody):
         else:
             assert not isinstance(other, np.ndarray)
             result = DenseOneBody(self.nbasis)
-            result._array = self._array
+            result._array = self._array.copy()
             result.iscale(other)
             return result
     
-
-
+    def assign_from(self, A):
+        assert isinstance(A, np.ndarray)
+        self._array = A    
+    
+    def ravel(self):
+        return self._array.ravel()
+    
+    def _to_numpy(self):
+        return self._array
+    
+    def _to_dense_one_body(self):
+        return self
+    
+    def _update_dense(self):
+        self._dense_array = self._array
+    def _update_array(self):
+        self._array = self._dense_array
+    
+    def set_elements_from_vec(self, x):
+        assert x.size == self.nbasis*(self.nbasis+1)/2.
+        ind = np.triu_indices_from(self._array)
+        
+        self._array[ind] = x
+        self._array += np.triu(self._array, 1).T
+        
+    def iscale_diag(self, factor):
+        ind = np.diag_indices_from(self._array)
+        self._array[ind] *= factor
+    
+    
 class DenseTwoBody(LinalgObject):
     """Dense symmetric four-dimensional matrix.
 
@@ -711,19 +754,19 @@ class DenseTwoBody(LinalgObject):
 
     def apply_direct(self, dm, output):
         """Compute the direct dot product with a density matrix."""
-        if not isinstance(dm, DenseOneBody):
+        if not isinstance(dm, OneBody):
             raise TypeError('The dm argument must be a DenseOneBody class')
-        if not isinstance(output, DenseOneBody):
+        if not isinstance(output, OneBody):
             raise TypeError('The output argument must be a DenseOneBody class')
-        output._array[:] = np.tensordot(self._array, dm._array, ([1,3], [0,1]))
+        output.assign_from(np.tensordot(self._array, dm._to_numpy(), ([1,3], [0,1])))
 
     def apply_exchange(self, dm, output):
         """Compute the exchange dot product with a density matrix."""
-        if not isinstance(dm, DenseOneBody):
+        if not isinstance(dm, OneBody):
             raise TypeError('The dm argument must be a DenseOneBody class')
-        if not isinstance(output, DenseOneBody):
+        if not isinstance(output, OneBody):
             raise TypeError('The output argument must be a DenseOneBody class')
-        output._array[:] = np.tensordot(self._array, dm._array, ([1,2], [0,1]))
+        output.assign_from(np.tensordot(self._array, dm._to_numpy(), ([1,2], [0,1])))
 
     def clear(self):
         self._array[:] = 0.0
@@ -742,3 +785,192 @@ class DenseTwoBody(LinalgObject):
         self._array *= signs.reshape(-1,1)
         self._array *= signs.reshape(-1,-1,1)
         self._array *= signs.reshape(-1,-1,-1,1)
+
+class TriangularLinalgFactory(DenseLinalgFactory):
+    def create_one_body(self, nbasis=None):
+        nbasis = nbasis or self._default_nbasis
+        return TriangularOneBody(nbasis)
+    
+    def create_one_body_from(self, A):
+        assert (np.abs(A-A.T) < 1e-14).all() #is it symmetric?
+        
+        result = TriangularOneBody(A.shape[0], A)
+        return result
+
+    def get_memory_one_body(self, nbasis=None):
+        return nbasis*(nbasis+1)/2.*8 #not technically correct. Still needs size of indices and indptr arrays
+
+    def get_memory_two_body(self, nbasis=None):
+        return nbasis**4*8
+
+class TriangularOneBody(OneBody):
+    """Sparse upper triangular symmetric two-dimensional matrix, also used for density matrices.
+
+        Internally stored as a scipy.sparse.csr_matrix (optimized for row operations).
+    """
+    def __init__(self, nbasis, A=None):
+        """
+           **Arguments:**
+
+           nbasis
+                The number of basis functions.
+        """
+        if A is None:
+            self._array = spr.csr_matrix((nbasis, nbasis))
+        else:
+            self._array = spr.triu(A, format="csr")
+        log.mem.announce(self._array.data.nbytes + self._array.indptr.nbytes + self._array.indices.nbytes)
+
+        self._dense_array = None
+
+    def __del__(self):
+        if log is not None:
+            log.mem.denounce(self._array.data.nbytes + self._array.indptr.nbytes + self._array.indices.nbytes)
+
+#     @classmethod
+#     def from_hdf5(cls, grp, lf):
+#         nbasis = grp['array'].shape[0]
+#         result = cls(nbasis)
+#         grp['array'].read_direct(result._array)
+#         return result
+# 
+#     def read_from_hdf5(self, grp):
+#         if grp.attrs['class'] != self.__class__.__name__:
+#             raise TypeError('The class of the one-body operator in the HDF5 file does not match.')
+#         grp['array'].read_direct(self._array)
+# 
+#     def to_hdf5(self, grp):
+#         grp.attrs['class'] = self.__class__.__name__
+#         grp['array'] = self._array
+        
+    def _get_nbasis(self):
+        '''The number of basis functions'''
+        return self._array.shape[0]
+
+    nbasis = property(_get_nbasis)
+
+    def _upper_tri_index(self, i,j):
+        if i > j:
+            return j,i
+        return i,j
+
+    def set_element(self, i, j, value):
+        i,j = self._upper_tri_index(i, j)        
+        self._array[i,j] = value
+
+    def get_element(self, i, j):
+        i,j = self._upper_tri_index(i, j)
+        return self._array[i,j]
+
+    def assign(self, other):
+        if not isinstance(other, TriangularOneBody):
+            raise TypeError('The other object must also be TriangularOneBody instance.')
+        self._array = other._array.copy()
+
+    def copy(self):
+        result = TriangularOneBody(self.nbasis)
+        result._array = self._array.copy()
+        return result
+
+    def reset(self):
+        self.__init__(self.nbasis)
+
+    def iadd(self, other, factor=1):
+        assert isinstance(other, TriangularOneBody)
+        self._array = self._array + other._array*factor
+
+    def expectation_value(self, dm):
+        assert isinstance(dm, TriangularOneBody)
+        return self._array.multiply(dm._array).sum()
+
+    def trace(self):
+        return self._array.diagonal().sum()
+
+    def itranspose(self):
+        self.isymmetrize() #noop
+
+    def iscale(self, factor):
+        self._array = self._array*factor
+
+    def dot(self, vec0, vec1):
+        assert isinstance(vec0, np.ndarray) and isinstance(vec1, np.ndarray)
+        return vec0.dot(self._array*vec1)
+ 
+    def idot(self, other):
+        self._array = self._array*other._array
+  
+    def distance(self, other):
+        return (self.ravel() - other.ravel()).max()
+# 
+#     def apply_basis_permutation(self, permutation):
+#         '''Reorder the coefficients for a given permutation of basis functions.
+#         '''
+#         self._array[:] = self._array[permutation]
+#         self._array[:] = self._array[:,permutation]
+ 
+    def apply_basis_signs(self, signs):
+        '''Correct for different sign conventions of the basis functions.'''
+        self._coeffs *= signs
+        self._coeffs *= signs.reshape(-1,1)
+     
+    def isymmetrize(self):
+#         self._array = 0.5*(self._array + self._array.T)
+        ind = np.tril_indices_from(self._array, -1)
+        assert (self._array[ind] == 0.0).all() #already upper triangular!
+    
+    def __add__(self, other):
+        result = TriangularOneBody(self.nbasis)
+        result._array = self._array + other._array
+        return result
+    
+    def __sub__(self, other):
+        result = TriangularOneBody(self.nbasis)
+        result._array = self._array - other._array
+        return result
+    
+    def __mul__(self, other):
+        if isinstance(other, OneBody):
+            result = TriangularOneBody(self.nbasis, self._array * other._array)
+            result.isymmetrize() #guaranteed to be upper triangular!
+            return result
+        else:
+            assert isinstance(other, int) or isinstance(other, float)
+            result = TriangularOneBody(self.nbasis)
+            result._array = self._array.copy()
+            result.iscale(other)
+            return result
+        
+    def ravel(self):
+        ind = np.triu_indices_from(self._array)
+        result = np.asarray(self._array[ind]).squeeze()
+        return result 
+    
+    def set_elements_from_vec(self, x):
+        assert x.size == self.nbasis*(self.nbasis+1)/2.
+        ind = np.triu_indices_from(self._array)
+        
+        temp = spr.coo_matrix((x, ind))
+        self._array = temp.tocsr()
+        
+    def iscale_diag(self, factor):
+        diag = self._array.diagonal()*factor
+        self._array.setdiag(diag)
+        
+    def assign_from(self, A):
+        self.__init__(self.nbasis, A)
+        
+    def _to_numpy(self):
+        result = self._array.todense()
+        result = result + np.triu(result, 1).T
+        result = np.asarray(result)
+        return result
+    
+    def _to_dense_one_body(self):
+        result = DenseOneBody(self.nbasis)
+        result.assign_from(self._to_numpy())
+        return result
+    
+    def _update_dense(self):
+        self._dense_array = self._to_numpy()
+    def _update_array(self):
+        self.assign_from(self._dense_array)

@@ -129,7 +129,7 @@ def calc_DM(sys):
     return system
 
 def promol_frac(sys, pro_da, pro_db):
-    S = sys.get_overlap()._array
+    S = sys.get_overlap()._to_numpy()
     pa = sqrtm(reduce(np.dot,[S,pro_da,S]) - reduce(np.dot,[S,pro_da,S,pro_da,S]))
     pb = sqrtm(reduce(np.dot,[S,pro_db,S]) - reduce(np.dot,[S,pro_db,S,pro_db,S]))
     

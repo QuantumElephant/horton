@@ -484,14 +484,14 @@ cdef class GOBasis(GBasis):
 
     def compute_overlap(self, overlap):
         """Compute the overlap matrix in a Gaussian orbital basis."""
-        cdef np.ndarray output = overlap._array
+        cdef np.ndarray output = overlap._dense_array #TODO: generalize this to abstract matrix classes
         self.check_matrix_one_body(output)
         gobasis = <gbasis.GOBasis*>self._this
         (<gbasis.GOBasis*>self._this).compute_overlap(<double*>output.data)
 
     def compute_kinetic(self, kinetic):
         """Compute the kinetic energy matrix in a Gaussian orbital basis."""
-        cdef np.ndarray output = kinetic._array
+        cdef np.ndarray output = kinetic._dense_array #TODO: generalize this to abstract matrix classes
         self.check_matrix_one_body(output)
         (<gbasis.GOBasis*>self._this).compute_kinetic(<double*>output.data)
 
@@ -500,7 +500,7 @@ cdef class GOBasis(GBasis):
                                    np.ndarray[double, ndim=2] centers not None,
                                    nuclear_attraction):
         """Compute the kintic energy matrix in a Gaussian orbital basis."""
-        cdef np.ndarray output = nuclear_attraction._array
+        cdef np.ndarray output = nuclear_attraction._dense_array #TODO: generalize this to abstract matrix classes
         self.check_matrix_one_body(output)
         assert charges.flags['C_CONTIGUOUS']
         cdef long ncharge = charges.shape[0]
@@ -513,7 +513,7 @@ cdef class GOBasis(GBasis):
         )
 
     def compute_electron_repulsion(self, electron_repulsion):
-        cdef np.ndarray output = electron_repulsion._array
+        cdef np.ndarray output = electron_repulsion._array #TODO: generalize this to abstract matrix classes
         self.check_matrix_two_body(output)
         (<gbasis.GOBasis*>self._this).compute_electron_repulsion(<double*>output.data)
 
@@ -688,7 +688,7 @@ cdef class GOBasis(GBasis):
            **Warning:** the results are added to the output array! This may
            be useful to combine results from different spin components.
         '''
-        cdef np.ndarray dmar = dm._array
+        cdef np.ndarray dmar = dm._array #TODO: generalize this to abstract matrix classes
         self.check_matrix_one_body(dmar)
         assert output.flags['C_CONTIGUOUS']
         npoint = output.shape[0]
@@ -725,7 +725,7 @@ cdef class GOBasis(GBasis):
 
            **Warning:** the results are added to the fock operator!
         '''
-        cdef np.ndarray output = fock._array
+        cdef np.ndarray output = fock._dense_array #TODO: generalize this to abstract matrix classes
         self.check_matrix_one_body(output)
         assert points.flags['C_CONTIGUOUS']
         npoint = points.shape[0]
