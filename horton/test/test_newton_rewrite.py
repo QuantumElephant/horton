@@ -457,12 +457,12 @@ def test_DFT_321G():
     libxc_term = LibXCLDATerm('c_vwn') #vwn_5
     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
 
-    args = [pro_da, pro_db, pro_ba, pro_bb, mua, mub]
+    args = [pro_da, pro_ba, pro_db, pro_bb, mua, mub]
 
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False, ifHess = True)
 
     x0 = initialGuess.prep_D(lg, *args)
 
@@ -682,10 +682,10 @@ def test_quadratic_stepped_constraints():
 # test_HF_STO3G_H2_4()
 # # test_DFT_STO3G_H2_4()
 # test_DFT_STO3G_Frac_H2_4()
-test_HF_321G()
+# test_HF_321G()
 # test_HF_631G()
 # test_DFT_STO3G()
-# test_DFT_321G()
+test_DFT_321G()
 # test_HF_STO3G_Frac()
 # test_HF_321G_Frac()
 # test_DFT_STO3G_Frac()
