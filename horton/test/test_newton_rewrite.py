@@ -564,7 +564,7 @@ def test_DFT_STO3G_Frac():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True, ifHess = True)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
 
     x0 = initialGuess.prep_D(lg, *args)
 
@@ -599,7 +599,7 @@ def test_DFT_321G_Frac():
     norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
     norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
 
-    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True, ifHess = True)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
 
     x0 = initialGuess.prep_D(lg, *args)
 
@@ -685,8 +685,8 @@ def test_quadratic_stepped_constraints():
 # test_HF_321G()
 # test_HF_631G()
 # test_DFT_STO3G()
-test_DFT_321G()
+# test_DFT_321G()
 # test_HF_STO3G_Frac()
 # test_HF_321G_Frac()
-# test_DFT_STO3G_Frac()
+test_DFT_STO3G_Frac()
 # test_DFT_321G_Frac()

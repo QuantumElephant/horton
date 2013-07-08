@@ -66,6 +66,7 @@ class Lagrangian(object):
         
         self.fock_alpha = sys.lf.create_one_body(sys.wfn.nbasis)
         self.fock_beta = sys.lf.create_one_body(sys.wfn.nbasis)
+        self.alwaysCalcHam = False
             
         #debugging
         self.e_hist = []
@@ -189,8 +190,11 @@ class Lagrangian(object):
         
         S = self.S
         
+        if self.alwaysCalcHam:
+            self.ham.invalidate()
+        else:
+            [self.ham.cache.invalidate(i) for i in ('op_coulomb', 'op_exchange_fock_alpha', 'op_exchange_fock_beta')]
         self.sys.wfn.invalidate()
-        self.ham.invalidate()
         self.sys.wfn.update_dm("alpha", self.matHelper.toOneBody(da)) #TODO: Fix for restricted
         self.sys.wfn.update_dm("beta", self.matHelper.toOneBody(db))
         self.sys.wfn.update_dm("full", self.matHelper.toOneBody(da+db))
@@ -344,7 +348,7 @@ class Lagrangian(object):
         
         return result
     
-    def callback_system(self, x, dummy2):
+    def callback_system(self, x, fx):
 #        self.occ_hist_a.append(self.sys.wfn.exp_alpha.occupations) #Not ordered
 ##        self.e_hist_a.append(self.sys.wfn.exp_alpha.energies)
 #        print "occ alpha:", self.occ_hist_a[-1]
@@ -377,7 +381,10 @@ class Lagrangian(object):
         self.e_hist.append(self.energy_wrap(x))
             
         print "Energy is " + str(self.e_hist[-1])
-            
+
+        if np.linalg.norm(fx) < 1e-2:
+            self.alwaysCalcHam = True
+        
         self.nIter+=1
     
     def grad_wrap(self,x): 
