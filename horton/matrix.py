@@ -175,9 +175,8 @@ class OneBody(LinalgObject):
         reduce(lambda x,y: x.imul(y), args[1:], result)
         return result
     
-    @classmethod
-    def imatrix_product(cls, *args):
-        reduce(lambda x,y: x.imul(y), args)
+    def imuls(self, *args):
+        reduce(lambda x,y: x.imul(y), args, self)
     
     @classmethod
     def add_matrix(cls, *args):
@@ -185,9 +184,8 @@ class OneBody(LinalgObject):
         reduce(lambda x,y: x.iadd(y), args[1:], result)
         return result
         
-    @classmethod
-    def iadd_matrix(cls, *args):
-        reduce(lambda x,y: x.iadd(y), args)
+    def iadds(self, *args):
+        reduce(lambda x,y: x.iadd(y), args, self)
     
     @classmethod
     def sub_matrix(cls, *args):
@@ -195,9 +193,8 @@ class OneBody(LinalgObject):
         reduce(lambda x,y: x.isub(y), args[1:], result)
         return result
         
-    @classmethod
-    def isub_matrix(cls, *args):
-        reduce(lambda x,y: x.isub(y), args)
+    def isubs(self, *args):
+        reduce(lambda x,y: x.isub(y), args, self)
 
 class DenseLinalgFactory(LinalgFactory):
     def create_expansion(self, nbasis=None, nfn=None):

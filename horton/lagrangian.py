@@ -237,7 +237,7 @@ class Lagrangian(object):
             if self.isFrac:
                 spsps = reduce(np.dot,[S,P,S,P,S])
             else:
-                pp = np.zeros_like(sds)
+                spsps = np.zeros_like(sds)
             dLdB = -0.5*(sds - sdsds - spsps + sds.T - sdsds.T - spsps.T)
 #            print "dLdB", dLdB
             
@@ -296,7 +296,7 @@ class Lagrangian(object):
         self.ham.invalidate()
         self.sys.wfn.update_dm("alpha", da) #TODO: Fix for restricted
         self.sys.wfn.update_dm("beta", db)
-        self.sys.wfn.update_dm("full", da+db)
+        self.sys.wfn.update_dm("full", OneBody.add_matrix(da,db))
     
         for i in [self.fock_alpha, self.fock_beta]:
             i.reset()
@@ -323,37 +323,39 @@ class Lagrangian(object):
 #             dLdD = fock #already OneBody
 #            print "fock", dLdD
             
-            sbs = S*B*S; 
-            sdsbs = S*D*sbs; 
-            sbsds = sbs*D*S; 
+            sbs = OneBody.matrix_product(S,B,S)
+            sdsbs = OneBody.matrix_product(S,D,sbs) 
+            sbsds = OneBody.matrix_product(sbs,D,S) 
             
             dLdD = self.matHelper.new_one_body()
-            dLdD.iadd(sbs - sdsbs - sbsds, -1)
+            dLdD.isub(sbs)
+            dLdD.iadds(sdsbs, sbsds)
             dLdD.isymmetrize()
-            dLdD += fock;
+            dLdD.iadd(fock)
 #            print "fock - outside", dLdD
             
             #dL/dB block
-            sds = S*D*S
-            sdsds = S*D*S*D*S
+            sds = OneBody.matrix_product(S,D,S)
+            sdsds = OneBody.matrix_product(S,D,S,D,S)
             
             if self.isFrac:
-                pp = P*P
+                spsps = OneBody.matrix_product(S,P,S,P,S)
             else:
-                pp = self.matHelper.new_one_body()
+                spsps = self.matHelper.new_one_body()
             
             dLdB = self.matHelper.new_one_body()
-            dLdB.iadd(sds - sdsds - pp, -1)
+            dLdB.isub(sds)
+            dLdB.iadds(sdsds, spsps)
             dLdB.isymmetrize()
 #            print "dLdB", dLdB
             
             if self.isFrac:
                 #dL/dP block
-                PB = P*B
-                BP = B*P
+                spsbs = OneBody.matrix_product(S,P,sbs) 
+                sbsps = OneBody.matrix_product(sbs,P,S) 
                 
                 dLdP = self.matHelper.new_one_body()
-                dLdP.iadd(PB + BP)
+                dLdP.iadds(spsbs, sbsps)
                 dLdP.isymmetrize() 
 #                print "dLdP", dLdP
         
@@ -368,18 +370,18 @@ class Lagrangian(object):
         
         for con,mul in zip(self.constraints, args[self.nfixed_args:]):
             if con.select == "alpha":
-                result[0]+= con.D_gradient(da, mul)
+                result[0].iadd(con.D_gradient(da, mul))
                 result.append(con.self_gradient(da))
             elif con.select == "beta":
-                result[self.nfixed_args/2]+= con.D_gradient(db, mul)
+                result[self.nfixed_args/2].iadd(con.D_gradient(db, mul))
                 result.append(con.self_gradient(db))
             elif con.select == "add" or con.select == "diff":
-                result[0]+= con.D_gradient(da, mul)
+                result[0].iadd(con.D_gradient(da, mul))
                 result[self.nfixed_args/2]+= con.D_gradient(db, mul)
                 if con.select == "add":
-                    result.append(con.self_gradient(da) + con.self_gradient(db))
+                    result.append(OneBody.add_matrix(con.self_gradient(da), con.self_gradient(db)))
                 else:
-                    result.append(con.self_gradient(da) - con.self_gradient(db))
+                    result.append(OneBody.sub_matrix(con.self_gradient(da), con.self_gradient(db)))
             else:
                 raise ValueError('The select argument must be alpha or beta or add or diff')
         
@@ -445,7 +447,7 @@ class Lagrangian(object):
         self.ham.invalidate()
         self.sys.wfn.update_dm("alpha", Da)
         self.sys.wfn.update_dm("beta", Db)
-        self.sys.wfn.update_dm("full", Da+Db)
+        self.sys.wfn.update_dm("full", OneBody.add_matrix(Da,Db))
 #       self.sys.wfn.update_dm("spin", Da-Db)
         result = self.ham.compute_energy()
 #       print "The energy is " + str(result)
@@ -494,23 +496,24 @@ class Lagrangian(object):
     def grad_wrap(self,x): 
         args = self.matHelper.vecToMat(x)
         
-#         sym_args = self.matHelper.symmetrize(*args)
+        sym_args = self.matHelper.symmetrize(*args)
 #         self.matHelper.check_sym(*sym_args)
-#         grad_orig = self.calc_grad(*args)
+        sym_args = self.matHelper.toNumpy(*sym_args)
+        grad_orig = self.calc_grad(*sym_args)
         
 #         args = self.matHelper.toOneBody(*args) #Where is the non-locality coming from?
         
 #         grad = self.calc_grad(*sym_args)
         grad = self.calc_grad_onebody(*args)
         
-#         grad = self.matHelper.toNumpy(*grad)
-#         self.matHelper.check_sym(*grad)
+        grad = self.matHelper.toNumpy(*grad)
+        self.matHelper.check_sym(*grad)
         
         result = self.matHelper.matToVec(*grad)
         
-#         self.matHelper.check_sym(*grad_orig)
-#         result_orig = self.matHelper.matToVec(*grad_orig)
-#         assert (np.abs(result_orig - result) < 1e-13).all(), (result_orig - result)
+        self.matHelper.check_sym(*grad_orig)
+        result_orig = self.matHelper.matToVec(*grad_orig)
+        assert (np.abs(result_orig - result) < 1e-10).all(), (result_orig - result)
         
         return result
     
