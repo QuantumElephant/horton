@@ -545,8 +545,8 @@ def test_DFT_STO3G_Frac():
     solver = NewtonKrylov()
 #
     basis = 'sto-3g'
-    lf = matrix.TriangularLinalgFactory()
-#     lf = matrix.DenseLinalgFactory()
+#     lf = matrix.TriangularLinalgFactory()
+    lf = matrix.DenseLinalgFactory()
     system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis, lf=lf)
     system.init_wfn(charge=0, mult=1, restricted=False)
 
@@ -569,14 +569,8 @@ def test_DFT_STO3G_Frac():
     norm_a = LinearConstraint(system, N, L, select="alpha")
     norm_b = LinearConstraint(system, N2, L, select="beta")
 
-    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
-<<<<<<< Upstream, based on delayedFockUpdate
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True, isTriu = False)
 
-=======
-#     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True, isTriu=False)
-
-    
->>>>>>> 45e4dbc Broken! OneBody operations implemented but Triangular products are implemented incorrectly, values aren't the same as dense.
     x0 = initialGuess.prep_D(lg, *args)
 
     print "Start DFT_STO3G_Frac"

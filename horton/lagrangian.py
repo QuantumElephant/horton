@@ -235,17 +235,17 @@ class Lagrangian(object):
             sdsds = reduce(np.dot,[S,D,S,D,S])
             
             if self.isFrac:
-                pp = np.dot(P,P)
+                spsps = reduce(np.dot,[S,P,S,P,S])
             else:
                 pp = np.zeros_like(sds)
-            dLdB = -0.5*(sds - sdsds - pp + sds.T - sdsds.T - pp.T)
+            dLdB = -0.5*(sds - sdsds - spsps + sds.T - sdsds.T - spsps.T)
 #            print "dLdB", dLdB
             
             if self.isFrac:
                 #dL/dP block
-                PB = np.dot(P,B)
-                BP = np.dot(B,P)
-                dLdP = 0.5*(PB + BP + PB.T + BP.T) 
+                spsbs = reduce(np.dot,[S,P,sbs]); 
+                sbsps = reduce(np.dot,[sbs,P,S]); 
+                dLdP = 0.5*(spsbs + sbsps + spsbs.T + sbsps.T) 
 #                print "dLdP", dLdP
         
             dLdD = dLdD.squeeze()
@@ -354,7 +354,6 @@ class Lagrangian(object):
                 
                 dLdP = self.matHelper.new_one_body()
                 dLdP.iadd(PB + BP)
-                np.dot(np.asarray(P._array.todense()), np.asarray(P._array.todense()))
                 dLdP.isymmetrize() 
 #                print "dLdP", dLdP
         
@@ -418,7 +417,7 @@ class Lagrangian(object):
             
             pauli_test = reduce(np.dot,[S,D,S]) - reduce(np.dot,[S,D,S,D,S])
             if self.isFrac:
-                pauli_test -= np.dot(P,P)
+                pauli_test -= reduce(np.dot, [S,P,S,P,S])
             pauli_test = np.dot(B,pauli_test)
             result -= np.trace(pauli_test)
 

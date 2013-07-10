@@ -108,6 +108,11 @@ def promol_guess(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, N = None, N2 = 
         pro_db += psi_psi_b*occ_b[i]
         pro_bb += psi_psi_b*np.abs(energy_b[i])
     
+    
+    
+#     mua = np.ndarray(np.max(energy_a[energy_a<0]))
+#     mub = np.ndarray(np.max(energy_b[energy_b<0]))
+
     mua = np.ones([1])*np.max(energy_a[energy_a<0]) #hack. Can't handle size 1 arrays cleanly.
     mub = np.ones([1])*np.max(energy_a[energy_a<0])
     
