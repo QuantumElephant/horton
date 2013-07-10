@@ -47,7 +47,14 @@ class MatrixHelpers(object):
         return result
     
     def symmetrize(self, *args):
-        return [0.5*(i+i.T) for i in args]
+        result = []
+        for i in args:
+            if isinstance(i, np.ndarray):
+                result.append(0.5*(i+i.T))
+            else:
+                i.isymmetrize()
+                result.append(i)
+        return result
     
     def check_sym(self, *args):
         def plot_mat(self, mat):

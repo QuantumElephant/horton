@@ -169,6 +169,35 @@ class OneBody(LinalgObject):
     def dot(self, vec0, vec1):
         raise NotImplementedError
 
+    @classmethod
+    def matrix_product(cls, *args):
+        result = args[0].copy()
+        reduce(lambda x,y: x.imul(y), args[1:], result)
+        return result
+    
+    @classmethod
+    def imatrix_product(cls, *args):
+        reduce(lambda x,y: x.imul(y), args)
+    
+    @classmethod
+    def add_matrix(cls, *args):
+        result = args[0].copy()
+        reduce(lambda x,y: x.iadd(y), args[1:], result)
+        return result
+        
+    @classmethod
+    def iadd_matrix(cls, *args):
+        reduce(lambda x,y: x.iadd(y), args)
+    
+    @classmethod
+    def sub_matrix(cls, *args):
+        result = args[0].copy()
+        reduce(lambda x,y: x.isub(y), args[1:], result)
+        return result
+        
+    @classmethod
+    def isub_matrix(cls, *args):
+        reduce(lambda x,y: x.isub(y), args)
 
 class DenseLinalgFactory(LinalgFactory):
     def create_expansion(self, nbasis=None, nfn=None):
@@ -597,6 +626,19 @@ class DenseOneBody(OneBody):
 
     def iadd(self, other, factor=1):
         self._array += other._array*factor
+        return self
+    
+    def isub(self, other):
+        self.iadd(other, -1)
+        return self
+
+    def imul(self, other):
+        if isinstance(other, DenseOneBody): #TODO: Abstract out dense requirement
+            self._array = np.dot(self._array, other._array)
+        else:
+            assert isinstance(other, int) or isinstance(other, float)
+            self.iscale(other)
+        return self
 
     def expectation_value(self, dm):
         return np.dot(self._array.ravel(), dm._array.ravel())
@@ -634,28 +676,28 @@ class DenseOneBody(OneBody):
     def isymmetrize(self):
         self._array = 0.5*(self._array + self._array.T)    
     
-    def __add__(self, other):
-        result = DenseOneBody(self.nbasis)
-        result._array = self._array + other._array
-        return result
-    
-    def __sub__(self, other):
-        result = DenseOneBody(self.nbasis)
-        result._array = self._array - other._array
-        return result
-    
-    def __mul__(self, other):
-        if isinstance(other, DenseOneBody):
-            result = DenseOneBody(self.nbasis)
-            result._array = np.dot(self._array, other._array)
-            return result
-        else:
-            assert not isinstance(other, np.ndarray)
-            result = DenseOneBody(self.nbasis)
-            result._array = self._array.copy()
-            result.iscale(other)
-            return result
-    
+#     def __add__(self, other):
+#         result = DenseOneBody(self.nbasis)
+#         result._array = self._array + other._array
+#         return result
+#     
+#     def __sub__(self, other):
+#         result = DenseOneBody(self.nbasis)
+#         result._array = self._array - other._array
+#         return result
+#     
+#     def __mul__(self, other):
+#         if isinstance(other, DenseOneBody):
+#             result = DenseOneBody(self.nbasis)
+#             result._array = np.dot(self._array, other._array)
+#             return result
+#         else:
+#             assert not isinstance(other, np.ndarray)
+#             result = DenseOneBody(self.nbasis)
+#             result._array = self._array.copy()
+#             result.iscale(other)
+#             return result
+#     
     def assign_from(self, A):
         assert isinstance(A, np.ndarray)
         self._array = A    

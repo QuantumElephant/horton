@@ -110,16 +110,19 @@ class LinearConstraint(Constraint):
     def lagrange(self, D, mul):
         S = self.sys.get_overlap()
         mul = mul.squeeze()
-        return -mul*((self.L*S*D).trace() - self.C)
+        lsd = OneBody.matrix_product(self.L, S, D)
+        return -mul*(lsd.trace() - self.C)
     def self_gradient(self, D):
         S = self.sys.get_overlap()
-        return self.C - (self.L*S*D).trace()
+        lsd = OneBody.matrix_product(self.L, S, D)
+        return self.C - lsd.trace()
     def D_gradient(self, D, Mul):
         S = self.sys.get_overlap()
         Mul = Mul.squeeze()
-        SL = S*self.L; 
+        SL = OneBody.matrix_product(S, self.L) 
         SL.isymmetrize()
-        return SL*-Mul #Should this always be negative?
+        SL.iscale(-Mul)
+        return SL  #Should this always be negative?
     
 class QuadraticConstraint(Constraint):
     def __init__(self, sys, C, L, select, C_init = None, D = None, steps = 10):
