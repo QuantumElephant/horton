@@ -497,7 +497,7 @@ class System(object):
             
             nuclear_attraction = nuclear_attraction._to_dense_one_body()
             self.obasis.compute_nuclear_attraction(self.numbers.astype(float), self.coordinates, nuclear_attraction)
-            nuclear_attraction = self.lf.create_one_body_from(nuclear_attraction._to_numpy())
+            nuclear_attraction = self.lf.create_one_body_from(nuclear_attraction._to_numpy()) 
             
             self.update_chk('cache.na')
         return nuclear_attraction

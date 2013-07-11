@@ -563,13 +563,13 @@ def test_DFT_STO3G_Frac():
 
     args = [pro_da, pro_ba, pa, pro_db, pro_bb, pb, mua, mub]
 
-    L = system.lf.create_one_body(dm_a.shape[0])
-    L._array = np.eye(dm_a.shape[0])
+    L = system.lf.create_one_body_from(np.eye(dm_a.shape[0]))
 
     norm_a = LinearConstraint(system, N, L, select="alpha")
     norm_b = LinearConstraint(system, N2, L, select="beta")
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True, isTriu = False)
+#     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
 
     x0 = initialGuess.prep_D(lg, *args)
 

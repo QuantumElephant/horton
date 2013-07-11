@@ -496,24 +496,24 @@ class Lagrangian(object):
     def grad_wrap(self,x): 
         args = self.matHelper.vecToMat(x)
         
-        sym_args = self.matHelper.symmetrize(*args)
-#         self.matHelper.check_sym(*sym_args)
-        sym_args = self.matHelper.toNumpy(*sym_args)
-        grad_orig = self.calc_grad(*sym_args)
-        
+#         sym_args = self.matHelper.symmetrize(*args)
+# #         self.matHelper.check_sym(*sym_args)
+#         sym_args = self.matHelper.toNumpy(*sym_args)
+#         grad_orig = self.calc_grad(*sym_args)
+#         
 #         args = self.matHelper.toOneBody(*args) #Where is the non-locality coming from?
         
 #         grad = self.calc_grad(*sym_args)
         grad = self.calc_grad_onebody(*args)
         
-        grad = self.matHelper.toNumpy(*grad)
-        self.matHelper.check_sym(*grad)
+#         grad = self.matHelper.toNumpy(*grad)
+#         self.matHelper.check_sym(*grad)
         
         result = self.matHelper.matToVec(*grad)
         
-        self.matHelper.check_sym(*grad_orig)
-        result_orig = self.matHelper.matToVec(*grad_orig)
-        assert (np.abs(result_orig - result) < 1e-10).all(), (result_orig - result)
+#         self.matHelper.check_sym(*grad_orig)
+#         result_orig = self.matHelper.matToVec(*grad_orig)
+#         assert (np.abs(result_orig - result) < 1e-10).all(), (result_orig - result)
         
         return result
     

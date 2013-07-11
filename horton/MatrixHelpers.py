@@ -104,10 +104,13 @@ class FullMatrixHelpers(MatrixHelpers):
     def vecToMat(self,x):
         args = []
         for i in np.arange(len(self.offsets)-1):
-            temp = x[self.offsets[i]:self.offsets[i+1]].reshape([self.shapes[i], self.shapes[i]])
+#             temp = x[self.offsets[i]:self.offsets[i+1]].reshape([self.shapes[i], self.shapes[i]])
+            temp = x[self.offsets[i]:self.offsets[i+1]]
             if temp.size > 1: #not a singleton
-                temp = self.new_one_body_from(temp)
-            args.append(temp)
+#                 temp = self.new_one_body_from(temp)
+                temp_mat = self.new_one_body()
+                temp_mat.set_elements_from_vec(temp)
+            args.append(temp_mat)
         return args
 
 class TriuMatrixHelpersOLD(MatrixHelpers):
