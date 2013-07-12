@@ -74,6 +74,9 @@ def promol_orbitals(sys, basis, numChargeMult=None, ifCheat = False):
         print "CHEAT MODE ENABLED"
         cheatSys = calc_DM(sys)
         
+        dm_a = cheatSys.wfn.dm_alpha._array
+        dm_b = cheatSys.wfn.dm_beta._array
+        
         orb_alpha = cheatSys.wfn.exp_alpha._coeffs
         orb_beta = cheatSys.wfn.exp_beta._coeffs
         
@@ -83,41 +86,46 @@ def promol_orbitals(sys, basis, numChargeMult=None, ifCheat = False):
         e_alpha = cheatSys.wfn.exp_alpha.energies
         e_beta = cheatSys.wfn.exp_beta.energies
         
-    return orb_alpha, orb_beta, occ_alpha, occ_beta, e_alpha, e_beta, nbasis
+    return dm_a, dm_b, orb_alpha, orb_beta, occ_alpha, occ_beta, e_alpha, e_beta, nbasis
     
 def promol_guess(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, N = None, N2 = None):
-#    occ_a = #TODO: add 6-31++G** occupations 
-
     assert occ_a.size == orb_a.shape[0] and occ_b.size == orb_b.shape[0], "initial occupation size: " + str(occ_a.size) + "," + str(occ_b.size) + " basis size: " + str(orb_a.shape[0]) + "," + str(orb_b.shape[0])
+    
+    mu_a = int_promol_mu(energy_a)
+    mu_b = int_promol_mu(energy_b)
 
     if N is None or N2 is None:
         N = np.sum(occ_a)
         N2 = np.sum(occ_b)
     
-    pro_da = np.zeros_like(orb_a)
-    pro_ba = np.zeros_like(orb_a)
-    pro_db = np.zeros_like(orb_a)
-    pro_bb = np.zeros_like(orb_a)
+    pro_da, pro_ba = promol_dm_b(orb_a, occ_a, energy_a, mu_a)
+    pro_db, pro_bb = promol_dm_b(orb_b, occ_b, energy_b, mu_b)
+
+    return pro_da, pro_ba, pro_db, pro_bb, mu_a, mu_b, N, N2
+
+def int_promol_mu(energy):
+    homo = np.array(np.max(energy[energy<0]))
+    lumo = np.array(np.min(energy[energy>0]))
+    mu = (homo + lumo)/2.
     
-    for i in np.arange(orb_a.shape[0]):
-        psi_psi_a = np.outer(orb_a[:,i], orb_a[:,i])
-        pro_da += psi_psi_a*occ_a[i]
-        pro_ba += psi_psi_a*np.abs(energy_a[i])
+    return mu
+    
+def promol_dm_b(orb, occ, energy, mu):
+    promol_dm = np.zeros_like(orb)
+    promol_b = np.zeros_like(orb)
+    
+    for eval, evec, eng in zip(occ, orb.T, energy):
+        outer = np.outer(evec, evec)
+        promol_dm += outer*eval
         
-        psi_psi_b = np.outer(orb_b[:,i], orb_b[:,i])
-        pro_db += psi_psi_b*occ_b[i]
-        pro_bb += psi_psi_b*np.abs(energy_b[i])
+        if eval>0.95 or eval < 0.05:
+            coeff = (eng-mu)/(1-2*eval)
+        else:
+            coeff = 0
+        promol_b += outer*coeff
+        
+    return promol_dm, promol_b
     
-    
-    
-#     mua = np.ndarray(np.max(energy_a[energy_a<0]))
-#     mub = np.ndarray(np.max(energy_b[energy_b<0]))
-
-    mua = np.ones([1])*np.max(energy_a[energy_a<0]) #hack. Can't handle size 1 arrays cleanly.
-    mub = np.ones([1])*np.max(energy_a[energy_a<0])
-    
-    return pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2
-
 def calc_DM(sys):
     system = System(sys.coordinates, sys.numbers, obasis=sys.obasis)
     system.init_wfn(restricted=False) 
@@ -133,12 +141,19 @@ def calc_DM(sys):
     converged = converge_scf_oda(ham, max_iter=5000)
     return system
 
-def promol_frac(sys, pro_da, pro_db):
-    S = sys.get_overlap()._to_numpy()
-    pa = sqrtm(reduce(np.dot,[S,pro_da,S]) - reduce(np.dot,[S,pro_da,S,pro_da,S]))
-    pb = sqrtm(reduce(np.dot,[S,pro_db,S]) - reduce(np.dot,[S,pro_db,S,pro_db,S]))
+def promol_frac(orb, occ):
+    promol_p = np.zeros_like(orb)
     
-    return pa, pb
+    for eval, evec in zip(occ, orb.T):
+        outer = np.outer(evec, evec)
+        pre_coeff = eval*(1-eval)
+        if pre_coeff > 0:
+            coeff = np.sqrt(pre_coeff)
+        else:
+            coeff=0
+        promol_p += outer*coeff 
+
+    return promol_p
     
 def prep_D(lg, *args):
     if not lg.isTriu:

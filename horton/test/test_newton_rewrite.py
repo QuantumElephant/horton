@@ -410,13 +410,19 @@ def test_DFT_STO3G():
     solver = NewtonKrylov()
 #
     basis = 'sto-3g'
-    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis)
+    lf = matrix.TriangularLinalgFactory()
+#     lf = matrix.DenseLinalgFactory()
+    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis, lf=lf)
     system.init_wfn(charge=0, mult=1, restricted=False)
 
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
-    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
-    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
-    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    dm_a, dm_b, orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis, ifCheat=True)
+#     occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
+#     occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
+    N=5; N2=5
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+
+    pro_da = dm_a #CHEATING
+    pro_db = dm_b #CHEATING
 
     grid = BeckeMolGrid(system, random_rotate=False)
 
@@ -425,8 +431,10 @@ def test_DFT_STO3G():
 
     args = [pro_da, pro_ba, pro_db, pro_bb, mua, mub]
 
-    norm_a = LinearConstraint(system, N, np.eye(dm_a.shape[0]), select="alpha")
-    norm_b = LinearConstraint(system, N2, np.eye(dm_a.shape[0]), select="beta")
+    L = system.lf.create_one_body_from(np.eye(dm_a.shape[0]))
+
+    norm_a = LinearConstraint(system, N, L, select="alpha")
+    norm_b = LinearConstraint(system, N2, L, select="beta")
 
     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = False)
 
@@ -545,16 +553,21 @@ def test_DFT_STO3G_Frac():
     solver = NewtonKrylov()
 #
     basis = 'sto-3g'
-#     lf = matrix.TriangularLinalgFactory()
-    lf = matrix.DenseLinalgFactory()
+    lf = matrix.TriangularLinalgFactory()
+#     lf = matrix.DenseLinalgFactory()
     system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis, lf=lf)
     system.init_wfn(charge=0, mult=1, restricted=False)
 
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
-    occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
-    occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
+    dm_a, dm_b, orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis, ifCheat = True)
+#     occ_a = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N=5 #STO-3G ONLY
+#     occ_b = np.array([1,1,2/3.,2/3.,2/3.,0.5,0.5]); N2=5 #STO-3G ONLY
+    N=5; N2=5;
     pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
-    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
+    pa = initialGuess.promol_frac(orb_a, occ_a)
+    pb = initialGuess.promol_frac(orb_b, occ_b)
+
+    pro_da = dm_a #CHEATING 
+    pro_db = dm_b #CHEATING
 
     grid = BeckeMolGrid(system, random_rotate=False)
 
@@ -568,8 +581,8 @@ def test_DFT_STO3G_Frac():
     norm_a = LinearConstraint(system, N, L, select="alpha")
     norm_b = LinearConstraint(system, N2, L, select="beta")
 
-    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True, isTriu = False)
-#     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
+#     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True, isTriu = False)
+    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
 
     x0 = initialGuess.prep_D(lg, *args)
 

@@ -858,7 +858,7 @@ class TriangularOneBody(DenseOneBody):
         log.mem.announce(self._array.nbytes)
 
         self._dense_array = None
-     
+        
     def ravel(self):
         ind = np.triu_indices_from(self._array)
         result = self._array[ind].squeeze()
@@ -868,6 +868,7 @@ class TriangularOneBody(DenseOneBody):
         assert x.size == self.nbasis*(self.nbasis+1)/2.
         ind = np.triu_indices_from(self._array)
         self._array[ind] = x
+        self._array += np.triu(self._array, 1).T
         
     def _to_dense_one_body(self):
         result = DenseOneBody(self.nbasis)
