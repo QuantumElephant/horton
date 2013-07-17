@@ -51,34 +51,6 @@ class Constraint(object):
         print "to new C: " + str(self.C)
         self.steps_array = self.steps_array[1:]
         return True
-        
-class LinearConstraintOLD(Constraint):
-    def __init__(self, sys, C, L, select, C_init = None, D = None, steps = 10):
-        if D is not None and C_init is None:
-            C_init = np.trace(reduce(np.dot,[L,sys.get_overlap()._array,D]))
-        if C_init is not None:
-            C_final = C
-            self.steps_array = np.linspace(C_init, C_final, steps)[1:]
-        else:
-            C_init = C
-        super(LinearConstraint, self).__init__(sys, C_init, L, select)
-    
-    def lagrange(self, D, mul):
-        S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
-        P = np.dot(S,D)
-        mul = mul.squeeze() #TODO: remove me
-        return -mul*(np.dot(self.L.ravel(), P.ravel()) - self.C)
-    def self_gradient(self, D):
-        S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
-        P = np.dot(S,D)
-        return self.C - np.dot(self.L.ravel(), P.ravel()) #Breaks compatibility with pre-constraint rewrite code. Original form below.
-#        return self.C - np.trace(np.dot(P, self.L))
-    def D_gradient(self, D, Mul):
-        S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
-        Mul = Mul.squeeze()
-        SL = np.dot(S, self.L)
-        
-        return -Mul*0.5*(SL + SL.T) #Should this always be negative?
     
 class LinearConstraint(Constraint):
     def __init__(self, sys, C, L, select, C_init = None, D = None, steps = 10):
@@ -124,7 +96,7 @@ class LinearConstraint(Constraint):
         SL.iscale(-Mul)
         return SL  #Should this always be negative?
     
-class QuadraticConstraint(Constraint):
+class QuadraticConstraintOLD(Constraint):
     def __init__(self, sys, C, L, select, C_init = None, D = None, steps = 10):
         assert len(L) == 2
         self.sys = sys

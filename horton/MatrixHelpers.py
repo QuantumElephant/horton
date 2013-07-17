@@ -73,23 +73,6 @@ class MatrixHelpers(object):
                 print "sym:", args
             assert (symerror < 1e-8).all(), (np.vstack(np.where(symerror > 1e-8)).T, symerror,np.sort(symerror, None)[-20:], self.plot_mat(symerror > 1e-8))
 
-class FullMatrixHelpersOLD(MatrixHelpers):
-    def calc_offsets(self):
-        result = [0] + [n**2 for n in self.shapes]
-        result = np.cumsum(result)
-        return result
-    
-    def matToVec(self, *args):
-        result = [i.ravel() for i in args]    
-        x = np.hstack(result)
-        return x
-    
-    def vecToMat(self,x):
-        args = []
-        for i in np.arange(len(self.offsets)-1):
-            args.append(x[self.offsets[i]:self.offsets[i+1]].reshape([self.shapes[i], self.shapes[i]]))
-        return args
-
 class FullMatrixHelpers(MatrixHelpers):
     def calc_offsets(self):
         result = [0] + [n**2 for n in self.shapes]
@@ -111,42 +94,6 @@ class FullMatrixHelpers(MatrixHelpers):
                 temp_mat = self.new_one_body()
                 temp_mat.set_elements_from_vec(temp)
             args.append(temp_mat)
-        return args
-
-class TriuMatrixHelpersOLD(MatrixHelpers):
-    def calc_offsets(self):
-        result = [0] + [int((n + 1)*n/2.) for n in self.shapes]
-        result = np.cumsum(result)
-        return result
-        
-    def matToVec(self, *args):
-        """ Takes an array of dense matrices and returns a vector of the upper triangular portions.
-            Does not check for symmetry first.
-        """
-        result = []
-        for i in args:
-            if i.size == 1:
-                result.append(i.squeeze())
-            else:
-                ind = np.triu_indices_from(i)
-                result.append(i[ind])
-        x = np.hstack(result)
-        return x
-    
-    def vecToMat(self,x):
-        args = []
-        for i in np.arange(len(self.offsets)-1):
-            
-            if self.shapes[i] == 1: #try to remove me
-                args.append(x[self.offsets[i]:self.offsets[i+1]])
-                continue
-            
-            ut = np.zeros([self.shapes[i], self.shapes[i]])
-            ind = np.triu_indices_from(ut)
-            ut[ind] = x[self.offsets[i]:self.offsets[i+1]]
-            temp = 0.5*(ut + ut.T)
-            args.append(temp)
-        self.check_sym(*args)
         return args
 
 class TriuMatrixHelpers(MatrixHelpers):

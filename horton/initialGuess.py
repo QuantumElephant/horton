@@ -17,7 +17,7 @@ def sqrtm(A):
     
     return result
 
-def promol_orbitals(sys, basis, numChargeMult=None, ifCheat = False):
+def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False):
     orb_alpha = []
     orb_beta = []
     occ_alpha = []
@@ -25,54 +25,10 @@ def promol_orbitals(sys, basis, numChargeMult=None, ifCheat = False):
     e_alpha = []
     e_beta = []
     nbasis = []
-    
-    for atomNum,i in enumerate(sys.numbers):
-        atom_sys = System(np.zeros((1,3), float), np.array([i]), obasis=basis) #hacky
         
-        if isinstance(numChargeMult, np.ndarray) and atomNum in numChargeMult[:,0]:
-            [num, charge, mult] = numChargeMult[np.where(numChargeMult[:,0] == atomNum),:].squeeze()
-            print "REWRITING atom number " + str(num) + " element: " + str(i) + " with charge: " \
-                + str(charge) + " and multiplicity: " + str(mult)
-            
-            atom_sys.init_wfn(charge=charge, mult=mult,restricted=False)
-        else:
-            atom_sys.init_wfn(restricted=False)        
-
-        nbasis.append(atom_sys.wfn.nbasis)
-        guess_hamiltonian_core(atom_sys)
-
-#DFT
-#        grid = BeckeMolGrid(system, random_rotate=False)
-#        
-#        libxc_term = LibXCLDATerm('x')
-#        ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
-
-#HF
-        ham = Hamiltonian(atom_sys, [HartreeFock()])
-        
-        converge_scf_oda(ham)
-        
-        orb_alpha.append(atom_sys.wfn.exp_alpha._coeffs)
-        orb_beta.append(atom_sys.wfn.exp_beta._coeffs)
-        
-        occ_alpha.append(atom_sys.wfn.exp_alpha.occupations)
-        occ_beta.append(atom_sys.wfn.exp_beta.occupations)
-        
-        e_alpha.append(atom_sys.wfn.exp_alpha.energies)
-        e_beta.append(atom_sys.wfn.exp_beta.energies)
-        
-    orb_alpha = scp.linalg.block_diag(*orb_alpha)
-    orb_beta = scp.linalg.block_diag(*orb_beta)
-    
-    occ_alpha = np.hstack(occ_alpha)
-    occ_beta = np.hstack(occ_beta)
-
-    e_alpha = np.hstack(e_alpha)
-    e_beta = np.hstack(e_beta)
-    
     if ifCheat:
         print "CHEAT MODE ENABLED"
-        cheatSys = calc_DM(sys)
+        cheatSys = calc_DM(sys, ham)
         
         dm_a = cheatSys.wfn.dm_alpha._array
         dm_b = cheatSys.wfn.dm_beta._array
@@ -85,14 +41,58 @@ def promol_orbitals(sys, basis, numChargeMult=None, ifCheat = False):
         
         e_alpha = cheatSys.wfn.exp_alpha.energies
         e_beta = cheatSys.wfn.exp_beta.energies
+    else:
+        for atomNum,i in enumerate(sys.numbers):
+            atom_sys = System(np.zeros((1,3), float), np.array([i]), obasis=basis) #hacky
+            
+            if isinstance(numChargeMult, np.ndarray) and atomNum in numChargeMult[:,0]:
+                [num, charge, mult] = numChargeMult[np.where(numChargeMult[:,0] == atomNum),:].squeeze()
+                print "REWRITING atom number " + str(num) + " element: " + str(i) + " with charge: " \
+                    + str(charge) + " and multiplicity: " + str(mult)
+                
+                atom_sys.init_wfn(charge=charge, mult=mult,restricted=False)
+            else:
+                atom_sys.init_wfn(restricted=False)     
+    
+            nbasis.append(atom_sys.wfn.nbasis)
+            guess_hamiltonian_core(atom_sys)
+    
+            if ham.grid is not None:
+                grid = BeckeMolGrid(atom_sys, random_rotate=False)
+            else:
+                grid = None
+            atom_ham = Hamiltonian(atom_sys, ham.terms, grid)
+    
+            converge_scf_oda(atom_ham, max_iter=5000)
+            
+            orb_alpha.append(atom_sys.wfn.exp_alpha._coeffs)
+            orb_beta.append(atom_sys.wfn.exp_beta._coeffs)
+            
+            occ_alpha.append(atom_sys.wfn.exp_alpha.occupations)
+            occ_beta.append(atom_sys.wfn.exp_beta.occupations)
+            
+            e_alpha.append(atom_sys.wfn.exp_alpha.energies)
+            e_beta.append(atom_sys.wfn.exp_beta.energies)
+            
+        orb_alpha = scp.linalg.block_diag(*orb_alpha)
+        orb_beta = scp.linalg.block_diag(*orb_beta)
         
+        occ_alpha = np.hstack(occ_alpha)
+        occ_beta = np.hstack(occ_beta)
+    
+        e_alpha = np.hstack(e_alpha)
+        e_beta = np.hstack(e_beta)
+    
+        dm_a = None
+        dm_b = None
+    
     return dm_a, dm_b, orb_alpha, orb_beta, occ_alpha, occ_beta, e_alpha, e_beta, nbasis
     
 def promol_guess(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, N = None, N2 = None):
     assert occ_a.size == orb_a.shape[0] and occ_b.size == orb_b.shape[0], "initial occupation size: " + str(occ_a.size) + "," + str(occ_b.size) + " basis size: " + str(orb_a.shape[0]) + "," + str(orb_b.shape[0])
     
-    mu_a = int_promol_mu(energy_a)
-    mu_b = int_promol_mu(energy_b)
+    mu_a = int_promol_mu(energy_a, occ_a)
+    mu_b = int_promol_mu(energy_b, occ_b)
 
     if N is None or N2 is None:
         N = np.sum(occ_a)
@@ -103,9 +103,9 @@ def promol_guess(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, N = None, N2 = 
 
     return pro_da, pro_ba, pro_db, pro_bb, mu_a, mu_b, N, N2
 
-def int_promol_mu(energy):
-    homo = np.array(np.max(energy[energy<0]))
-    lumo = np.array(np.min(energy[energy>0]))
+def int_promol_mu(energy, occ):
+    homo = np.array(np.max(energy[occ > 0.95]))
+    lumo = np.array(np.min(energy[occ < 0.05]))
     mu = (homo + lumo)/2.
     
     return mu
@@ -126,22 +126,16 @@ def promol_dm_b(orb, occ, energy, mu):
         
     return promol_dm, promol_b
     
-def calc_DM(sys):
+def calc_DM(sys,ham):
     system = System(sys.coordinates, sys.numbers, obasis=sys.obasis)
-    system.init_wfn(restricted=False) 
+    system.init_wfn(restricted=False) #TODO: generalize for closed shells systems
     guess_hamiltonian_core(system)
-#  DFT  
-    grid = BeckeMolGrid(system, random_rotate=False)
-    libxc_term = LibXCLDATerm('x')
-    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
-    
-#  HF
-#    ham = Hamiltonian(system, [HartreeFock()])
-    
-    converged = converge_scf_oda(ham, max_iter=5000)
+    ham_copy = Hamiltonian(system, ham.terms, ham.grid)
+        
+    converged = converge_scf_oda(ham_copy, max_iter=5000)
     return system
 
-def promol_frac(orb, occ):
+def promol_frac_old(orb, occ):
     promol_p = np.zeros_like(orb)
     
     for eval, evec in zip(occ, orb.T):
@@ -154,6 +148,13 @@ def promol_frac(orb, occ):
         promol_p += outer*coeff 
 
     return promol_p
+
+def promol_frac(dm, sys):
+    s = sys.get_overlap()._array #TODO: abstract out inverse operation in matrix
+    
+    p = np.dot(np.dot(dm,s) - reduce(np.dot, (dm,s,dm,s)), np.linalg.inv(s))
+    return p
+    
     
 def prep_D(lg, *args):
     if not lg.isTriu:
@@ -196,7 +197,8 @@ def calc_shapes(*args):
 def project(orig_sys, proj_sys, *args):
     new_basis = GOBasis.concatenate(orig_sys.obasis, proj_sys.obasis)
     mixed_sys = System(orig_sys.coordinates, orig_sys.numbers, obasis = new_basis)
-    mixed_S = mixed_sys.get_overlap()._array 
+    mixed_sys.init_wfn(charge=0, mult=1,restricted=False)
+    mixed_S = mixed_sys.get_overlap()._array
     orig_S = orig_sys.get_overlap()._array
     
     rect_S = mixed_S[:orig_S.shape[0], orig_S.shape[1]:]

@@ -521,8 +521,8 @@ class Lagrangian(object):
         args = self.matHelper.vecToMat(x)
         
         for i in (args[0], args[self.nfixed_args/2]):
-            ds = np.dot(i,self.S)
-            print np.diag(ds)
+            ds = np.dot(i._array,self.S)
+            print np.linalg.eigvals(ds)
 #            for c in self.constraints[key]:
 #                ds = np.dot(i,self.S)
 #                print np.trace(np.dot(ds,c.L))
