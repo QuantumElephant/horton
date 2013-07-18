@@ -10,12 +10,15 @@ def test_projection():
     basis = 'sto-3g'
     system = System.from_file(xyzFile, obasis=basis)
     system.init_wfn(charge=0, restricted=False)
+    ham = Hamiltonian(system, [HartreeFock()])
     
-    dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, basis)
-    occ_a = np.array([1,1,1,0.5,0.5,0.5,0.5]); N=5 #STO-3G ONLY
-    occ_b = np.array([1,1,1,0.5,0.5,0.5,0.5]); N2=5 #STO-3G ONLY
-    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(dm_a, dm_b, occ_a, occ_b, energy_a, energy_b, N, N2)
-    pa, pb = initialGuess.promol_frac(system, pro_da, pro_db)
+    dm_a, dm_b, orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(system, ham, basis)
+#     occ_a = np.array([1,1,1,0.5,0.5,0.5,0.5]); N=5 #STO-3G ONLY
+#     occ_b = np.array([1,1,1,0.5,0.5,0.5,0.5]); N2=5 #STO-3G ONLY
+    N=5; N2=5
+    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, N, N2)
+    pa = initialGuess.promol_frac(pro_da, system)
+    pb = initialGuess.promol_frac(pro_db, system)
     
     newBasis = '6-31++g**'
     system2 = System.from_file(xyzFile, obasis=newBasis)
@@ -59,5 +62,5 @@ def test_normalize_D():
 
 # test_normalize_D()
 # test_mcPurify()
-# test_projection()
+test_projection()
 

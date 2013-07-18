@@ -66,7 +66,7 @@ class Lagrangian(object):
         
         self.fock_alpha = sys.lf.create_one_body(sys.wfn.nbasis)
         self.fock_beta = sys.lf.create_one_body(sys.wfn.nbasis)
-        self.alwaysCalcHam = False
+        self.alwaysCalcHam = True
             
         #debugging
         self.e_hist = []
@@ -293,7 +293,10 @@ class Lagrangian(object):
         S = self.sys.get_overlap()
         
         self.sys.wfn.invalidate()
-        self.ham.invalidate()
+        if self.alwaysCalcHam:
+            self.ham.invalidate()
+        else:
+            [self.ham.cache.invalidate(i) for i in ('op_coulomb', 'op_exchange_fock_alpha', 'op_exchange_fock_beta')]
         self.sys.wfn.update_dm("alpha", da) #TODO: Fix for restricted
         self.sys.wfn.update_dm("beta", db)
         self.sys.wfn.update_dm("full", OneBody.add_matrix(da,db))

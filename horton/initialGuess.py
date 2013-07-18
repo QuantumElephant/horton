@@ -1,6 +1,6 @@
 from horton.newton_rewrite import NewtonKrylov
 from horton.gbasis.cext import GOBasis
-from horton import System, guess_hamiltonian_core, Hamiltonian, converge_scf_oda, HartreeFock, Hartree, BeckeMolGrid, LibXCLDATerm, context
+from horton import System, guess_hamiltonian_core, Hamiltonian, converge_scf_oda, HartreeFock, Hartree, BeckeMolGrid, LibXCLDATerm, context, HamiltonianTerm
 import numpy as np
 import scipy as scp
 import matplotlib.pyplot as plt
@@ -64,6 +64,7 @@ def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False):
             atom_ham = Hamiltonian(atom_sys, ham.terms, grid)
     
             converge_scf_oda(atom_ham, max_iter=5000)
+            reset_ham(sys, ham)
             
             orb_alpha.append(atom_sys.wfn.exp_alpha._coeffs)
             orb_beta.append(atom_sys.wfn.exp_beta._coeffs)
@@ -130,24 +131,16 @@ def calc_DM(sys,ham):
     system = System(sys.coordinates, sys.numbers, obasis=sys.obasis)
     system.init_wfn(restricted=False) #TODO: generalize for closed shells systems
     guess_hamiltonian_core(system)
-    ham_copy = Hamiltonian(system, ham.terms, ham.grid)
-        
+    ham_copy = Hamiltonian(system, ham.terms, ham.grid) #FIXME: Duplicate hamiltonian objects
+
     converged = converge_scf_oda(ham_copy, max_iter=5000)
+    reset_ham(sys,ham)
     return system
 
-def promol_frac_old(orb, occ):
-    promol_p = np.zeros_like(orb)
-    
-    for eval, evec in zip(occ, orb.T):
-        outer = np.outer(evec, evec)
-        pre_coeff = eval*(1-eval)
-        if pre_coeff > 0:
-            coeff = np.sqrt(pre_coeff)
-        else:
-            coeff=0
-        promol_p += outer*coeff 
-
-    return promol_p
+def reset_ham(sys,ham):
+    for i in ham.terms:
+        if isinstance(i, HamiltonianTerm):
+            i.prepare_system(sys, ham.cache, ham.grid)
 
 def promol_frac(dm, sys):
     s = sys.get_overlap()._array #TODO: abstract out inverse operation in matrix
@@ -202,7 +195,7 @@ def project(orig_sys, proj_sys, *args):
     orig_S = orig_sys.get_overlap()._array
     
     rect_S = mixed_S[:orig_S.shape[0], orig_S.shape[1]:]
-    proj_inv_S = np.linalg.pinv(mixed_S[orig_S.shape[0]:, orig_S.shape[1]:])
+    proj_inv_S = np.linalg.inv(mixed_S[orig_S.shape[0]:, orig_S.shape[1]:])
      
     result = []
     for i in args:
