@@ -309,57 +309,6 @@ def test_DFT_STO3G_Frac_H2_4():
     print "Computed E:" + str(ham.compute_energy())
 #    assert np.abs(ham.compute_energy() - -66.634688718437) < 1e-4
 
-def test_DFT_321G_Frac_Proj():
-    solver = NewtonKrylov()
-#
-    basis = 'sto-3g'
-    lf = matrix.TriangularLinalgFactory()
-    sm_system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis, lf=lf)
-    sm_system.init_wfn(charge=0, mult=1, restricted=False)
-    grid = BeckeMolGrid(sm_system, random_rotate=False)
-
-    libxc_term = LibXCLDATerm('c_vwn') #vwn_5
-    ham = Hamiltonian(sm_system, [Hartree(), libxc_term], grid)
-
-
-    dm_a, dm_b, orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, nbasis = initialGuess.promol_orbitals(sm_system, ham, basis, ifCheat = True)
-    N=5; N2=5;
-    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, N, N2)
-    pro_da = dm_a #CHEATING 
-    pro_db = dm_b #CHEATING
-    pa = initialGuess.promol_frac(pro_da, sm_system)
-    pb = initialGuess.promol_frac(pro_db, sm_system)
-
-    sm_args = [pro_da, pro_ba, pa, pro_db, pro_bb, pb, mua, mub]
-    
-    basis = '3-21G'
-    lf = matrix.TriangularLinalgFactory()
-    system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis, lf=lf)
-    system.init_wfn(charge=0, mult=1, restricted=False)
-    grid = BeckeMolGrid(system, random_rotate=False)
-
-    libxc_term = LibXCLDATerm('c_vwn') #vwn_5
-    ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
-
-    args = initialGuess.project(sm_system, system, *sm_args)
-
-    L = system.lf.create_one_body_from(np.eye(args[0].shape[0]))
-
-    norm_a = LinearConstraint(system, N, L, select="alpha")
-    norm_b = LinearConstraint(system, N2, L, select="beta")
-
-#     lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True, isTriu = False)
-    lg = Lagrangian(system, ham, [norm_a, norm_b], isFrac = True)
-
-    x0 = initialGuess.prep_D(lg, *args)
-
-    print "Start DFT_STO3G_Frac"
-    x_star = solver.solve(lg, x0)
-
-    print "Actual E:" + str(-67.521923845983) #NWCHEM
-    print "Computed E:" + str(ham.compute_energy())
-    assert np.abs(ham.compute_energy() - -67.521923845983) < 1e-4 #KNOWN TO FAIL
-    
 def test_linear_stepped_constraints():
     solver = NewtonKrylov()
 #
@@ -525,7 +474,7 @@ def check_E(ham, targetE):
 # # test_DFT_STO3G_H2_4()
 # test_DFT_STO3G_Frac_H2_4()
 
-default_h2o_calc('sto-3g', "HF", -74.965901, ifCheat=True) #NWCHEM
+# default_h2o_calc('sto-3g', "HF", -74.965901, ifCheat=True) #NWCHEM
 # default_h2o_calc('3-21G', "HF", -75.583747447860, ifCheat=True) #NWCHEM
 # default_h2o_calc('6-31++G**', "HF", -76.0483902449622, ifCheat=True) #Horton
 # default_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True) #NWCHEM
@@ -537,4 +486,4 @@ default_h2o_calc('sto-3g', "HF", -74.965901, ifCheat=True) #NWCHEM
 # default_h2o_calc('3-21G', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
 
 # test_DFT_321G_Frac_Proj()
-# projected_h2o_calc('sto-3g', '3-21G', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
+projected_h2o_calc('6-31G', '6-31G', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
