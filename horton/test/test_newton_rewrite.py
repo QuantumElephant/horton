@@ -399,6 +399,7 @@ def default_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False):
 
 def setup_h2o_system(basis, method, ifCheat = False, isFrac = False, restricted=False, Exc = None, random_rotate=False, N=None, N2=None):
     lf = matrix.TriangularLinalgFactory()
+#     lf = matrix.DenseLinalgFactory()
     system = System.from_file(context.get_fn('test/water_equilim.xyz'), obasis=basis, lf=lf)
     system.init_wfn(charge=0, mult=1, restricted=restricted)
     if method == "HF":
@@ -482,8 +483,8 @@ def check_E(ham, targetE):
 
 # default_h2o_calc('sto-3g', "HF", -74.965901, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('3-21G', "HF", -75.583747447860, ifCheat=True, isFrac=True) #NWCHEM
-# default_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
+default_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('3-21G', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
 
 # test_DFT_321G_Frac_Proj()
-projected_h2o_calc('6-31G', '6-31G', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
+# projected_h2o_calc('6-31G', '6-31G', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM

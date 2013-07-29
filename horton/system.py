@@ -470,6 +470,7 @@ class System(object):
             
             overlap = overlap._to_dense_one_body()
             self.obasis.compute_overlap(overlap)
+            overlap._update_array()
             overlap = self.lf.create_one_body_from(overlap._to_numpy())
             
             self.update_chk('cache.olp')
@@ -483,6 +484,7 @@ class System(object):
             
             kinetic = kinetic._to_dense_one_body()
             self.obasis.compute_kinetic(kinetic)
+            kinetic._update_array()
             kinetic = self.lf.create_one_body_from(kinetic._to_numpy())
             
             self.update_chk('cache.kin')
@@ -497,6 +499,7 @@ class System(object):
             
             nuclear_attraction = nuclear_attraction._to_dense_one_body()
             self.obasis.compute_nuclear_attraction(self.numbers.astype(float), self.coordinates, nuclear_attraction)
+            nuclear_attraction._update_array()
             nuclear_attraction = self.lf.create_one_body_from(nuclear_attraction._to_numpy()) 
             
             self.update_chk('cache.na')

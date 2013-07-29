@@ -857,7 +857,7 @@ class TriangularOneBody(DenseOneBody):
             self._array = A
         log.mem.announce(self._array.nbytes)
 
-        self._dense_array = None
+        self._dense_array = self._array
         
     def ravel(self):
         ind = np.triu_indices_from(self._array)
