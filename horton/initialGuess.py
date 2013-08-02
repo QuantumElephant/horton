@@ -17,7 +17,7 @@ def sqrtm(A):
     
     return result
 
-def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False):
+def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False, charge_target=0, mult_target=None):
     orb_alpha = []
     orb_beta = []
     occ_alpha = []
@@ -28,7 +28,7 @@ def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False):
         
     if ifCheat:
         print "CHEAT MODE ENABLED"
-        cheatSys = calc_DM(sys, ham)
+        cheatSys, fock_alpha, fock_beta = calc_DM(sys, ham, charge_target, mult_target)
         
         dm_a = cheatSys.wfn.dm_alpha._array
         dm_b = cheatSys.wfn.dm_beta._array
@@ -86,18 +86,24 @@ def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False):
     
         dm_a = None
         dm_b = None
+        
+        fock_alpha = None
+        fock_beta = None
     
-    return dm_a, dm_b, orb_alpha, orb_beta, occ_alpha, occ_beta, e_alpha, e_beta, nbasis
+    return dm_a, dm_b, fock_alpha, fock_beta, (orb_alpha, occ_alpha, e_alpha, orb_beta, occ_beta, e_beta)
     
-def promol_guess(orb_a, orb_b, occ_a, occ_b, energy_a, energy_b, N = None, N2 = None):
+def promol_guess(orb_a, occ_a, energy_a, orb_b, occ_b, energy_b, ifFracTarget=False):
     assert occ_a.size == orb_a.shape[0] and occ_b.size == orb_b.shape[0], "initial occupation size: " + str(occ_a.size) + "," + str(occ_b.size) + " basis size: " + str(orb_a.shape[0]) + "," + str(orb_b.shape[0])
     
-    mu_a = int_promol_mu(energy_a, occ_a)
-    mu_b = int_promol_mu(energy_b, occ_b)
+    if ifFracTarget:
+        mu_a = frac_promol_mu(energy_a, occ_a)
+        mu_b = frac_promol_mu(energy_b, occ_b)
+    else:
+        mu_a = int_promol_mu(energy_a, occ_a)
+        mu_b = int_promol_mu(energy_b, occ_b)
 
-    if N is None or N2 is None:
-        N = np.sum(occ_a)
-        N2 = np.sum(occ_b)
+    N = np.sum(occ_a)
+    N2 = np.sum(occ_b)
     
     pro_da, pro_ba = promol_dm_b(orb_a, occ_a, energy_a, mu_a)
     pro_db, pro_bb = promol_dm_b(orb_b, occ_b, energy_b, mu_b)
@@ -127,15 +133,20 @@ def promol_dm_b(orb, occ, energy, mu):
         
     return promol_dm, promol_b
     
-def calc_DM(sys,ham):
+def calc_DM(sys,ham, charge_target, mult_target): #TODO: remove charge + mult
     system = System(sys.coordinates, sys.numbers, obasis=sys.obasis)
-    system.init_wfn(restricted=False) #TODO: generalize for closed shells systems
+    system.init_wfn(charge=charge_target, mult=mult_target, restricted=False) #TODO: generalize for closed shells systems
     guess_hamiltonian_core(system)
     ham_copy = Hamiltonian(system, ham.terms, ham.grid) #FIXME: Duplicate hamiltonian objects
 
     converged = converge_scf_oda(ham_copy, max_iter=5000)
+    
+    fock_alpha = sys.lf.create_one_body(sys.wfn.nbasis)
+    fock_beta = sys.lf.create_one_body(sys.wfn.nbasis)
+    ham_copy.compute_fock(fock_alpha, fock_beta)
+    
     reset_ham(sys,ham)
-    return system
+    return system, fock_alpha._array, fock_beta._array
 
 def reset_ham(sys,ham):
     for i in ham.terms:

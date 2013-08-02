@@ -603,10 +603,9 @@ class DenseOneBody(OneBody):
     def assign(self, other):
         if not isinstance(other, DenseOneBody):
             try:
-                other = other.toDenseOneBody()
+                other = other.to_dense_one_body()
             except AttributeError:
-                print "the other object must have a toDenseOneBody method"
-                assert False
+                assert False,"the other object must have a toDenseOneBody method"
         self._array[:] = other._array
 
     def copy(self):

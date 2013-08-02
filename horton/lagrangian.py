@@ -176,111 +176,7 @@ class Lagrangian(object):
         
         return result
     
-    def calc_grad(self, *args): #move to kwargs eventually
-#         print ("gradient: ", args)
-        
-        alpha_args = list(args[:self.nfixed_args/2])
-        if not self.isRestricted:
-            beta_args = list(args[self.nfixed_args/2:self.nfixed_args])
-        else:
-            beta_args = []
-
-        da = alpha_args[0]
-        db = beta_args[0]
-        
-        S = self.S
-        
-        if self.alwaysCalcHam:
-            self.ham.invalidate()
-        else:
-            [self.ham.cache.invalidate(i) for i in ('op_coulomb', 'op_exchange_fock_alpha', 'op_exchange_fock_beta')]
-        self.sys.wfn.invalidate()
-        self.sys.wfn.update_dm("alpha", self.matHelper.toOneBody(da)) #TODO: Fix for restricted
-        self.sys.wfn.update_dm("beta", self.matHelper.toOneBody(db))
-        self.sys.wfn.update_dm("full", self.matHelper.toOneBody(da+db))
-    
-        self.fock_alpha.reset()
-        self.fock_beta.reset()
-        
-        self.ham.compute_fock(self.fock_alpha, self.fock_beta)
-        
-#        self.sys.wfn.invalidate() #Used for debugging occupations in callback
-#        self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), self.matHelper.toOneBody(da), self.matHelper.toOneBody(db)) #Used for callback debugging
-        
-        alpha_args.append(self.matHelper.toNumpy(self.fock_alpha))
-        beta_args.append(self.matHelper.toNumpy(self.fock_beta))
-
-        fixed_terms = []        
-        for i in (alpha_args, beta_args):
-            if len(i) == 0:
-                continue
-            
-            if self.isFrac:
-                [D,B,P] = i[:self.nfixed_args/2]
-            else:
-                [D,B] = i[:self.nfixed_args/2]
-            fock = i[-1]
-
-            dLdD = fock.copy()
-#            print "fock", dLdD
-            
-            sbs = reduce(np.dot,[S,B,S]); 
-            sdsbs = reduce(np.dot,[S,D,sbs]); 
-            sbsds = reduce(np.dot,[sbs,D,S]); 
-            
-            dLdD -= 0.5*(sbs - sdsbs - sbsds + sbs.T - sdsbs.T - sbsds.T)
-                        
-            #dL/dB block
-            sds = reduce(np.dot,[S,D,S])
-            sdsds = reduce(np.dot,[S,D,S,D,S])
-            
-            if self.isFrac:
-                spsps = reduce(np.dot,[S,P,S,P,S])
-            else:
-                spsps = np.zeros_like(sds)
-            dLdB = -0.5*(sds - sdsds - spsps + sds.T - sdsds.T - spsps.T)
-#            print "dLdB", dLdB
-            
-            if self.isFrac:
-                #dL/dP block
-                spsbs = reduce(np.dot,[S,P,sbs]); 
-                sbsps = reduce(np.dot,[sbs,P,S]); 
-                dLdP = 0.5*(spsbs + sbsps + spsbs.T + sbsps.T) 
-#                print "dLdP", dLdP
-        
-            dLdD = dLdD.squeeze()
-            dLdB = dLdB.squeeze()
-
-            fixed_terms.append(dLdD)
-            fixed_terms.append(dLdB)
-            if self.isFrac:
-                dLdP = dLdP.squeeze()
-                fixed_terms.append(dLdP)
-            
-        result = fixed_terms
-        
-        assert len(self.constraints) == len(args[self.nfixed_args:])
-        
-        for con,mul in zip(self.constraints, args[self.nfixed_args:]):
-            if con.select == "alpha":
-                result[0]+= con.D_gradient_old(da, mul)
-                result.append(con.self_gradient_old(da))
-            elif con.select == "beta":
-                result[self.nfixed_args/2]+= con.D_gradient_old(db, mul)
-                result.append(con.self_gradient_old(db))
-            elif con.select == "add" or con.select == "diff":
-                result[0]+= con.D_gradient_old(da, mul)
-                result[self.nfixed_args/2]+= con.D_gradient_old(db, mul)
-                if con.select == "add":
-                    result.append(con.self_gradient_old(da) + con.self_gradient_old(db))
-                else:
-                    result.append(con.self_gradient_old(da) - con.self_gradient_old(db))
-            else:
-                raise ValueError('The select argument must be alpha or beta or add or diff')
-        
-        return result
-    
-    def calc_grad_onebody(self, *args):
+    def calc_grad(self, *args):
         alpha_args = list(args[:self.nfixed_args/2])
         if not self.isRestricted:
             beta_args = list(args[self.nfixed_args/2:self.nfixed_args])
@@ -499,24 +395,8 @@ class Lagrangian(object):
     def grad_wrap(self,x): 
         args = self.matHelper.vecToMat(x)
         
-#         sym_args = self.matHelper.symmetrize(*args)
-# #         self.matHelper.check_sym(*sym_args)
-#         sym_args = self.matHelper.toNumpy(*sym_args)
-#         grad_orig = self.calc_grad(*sym_args)
-#         
-#         args = self.matHelper.toOneBody(*args) #Where is the non-locality coming from?
-        
-#         grad = self.calc_grad(*sym_args)
-        grad = self.calc_grad_onebody(*args)
-        
-#         grad = self.matHelper.toNumpy(*grad)
-#         self.matHelper.check_sym(*grad)
-        
+        grad = self.calc_grad(*args)
         result = self.matHelper.matToVec(*grad)
-        
-#         self.matHelper.check_sym(*grad_orig)
-#         result_orig = self.matHelper.matToVec(*grad_orig)
-#         assert (np.abs(result_orig - result) < 1e-10).all(), (result_orig - result)
         
         return result
     
