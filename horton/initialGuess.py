@@ -30,8 +30,8 @@ def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False, charge
         print "CHEAT MODE ENABLED"
         cheatSys, fock_alpha, fock_beta = calc_DM(sys, ham, charge_target, mult_target)
         
-        dm_a = cheatSys.wfn.dm_alpha._array
-        dm_b = cheatSys.wfn.dm_beta._array
+        dm_a = cheatSys.wfn.dm_alpha.copy()._array
+        dm_b = cheatSys.wfn.dm_beta.copy()._array
         
         orb_alpha = cheatSys.wfn.exp_alpha._coeffs
         orb_beta = cheatSys.wfn.exp_beta._coeffs
@@ -134,19 +134,14 @@ def promol_dm_b(orb, occ, energy, mu):
     return promol_dm, promol_b
     
 def calc_DM(sys,ham, charge_target, mult_target): #TODO: remove charge + mult
-    system = System(sys.coordinates, sys.numbers, obasis=sys.obasis)
-    system.init_wfn(charge=charge_target, mult=mult_target, restricted=False) #TODO: generalize for closed shells systems
-    guess_hamiltonian_core(system)
-    ham_copy = Hamiltonian(system, ham.terms, ham.grid) #FIXME: Duplicate hamiltonian objects
-
-    converged = converge_scf_oda(ham_copy, max_iter=5000)
-    
+    guess_hamiltonian_core(sys)
+    converged = converge_scf_oda(ham, max_iter=5000)
+     
     fock_alpha = sys.lf.create_one_body(sys.wfn.nbasis)
     fock_beta = sys.lf.create_one_body(sys.wfn.nbasis)
-    ham_copy.compute_fock(fock_alpha, fock_beta)
+    ham.compute_fock(fock_alpha, fock_beta)
     
-    reset_ham(sys,ham)
-    return system, fock_alpha._array, fock_beta._array
+    return sys, fock_alpha._array, fock_beta._array
 
 def reset_ham(sys,ham):
     for i in ham.terms:

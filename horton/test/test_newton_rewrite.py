@@ -247,8 +247,10 @@ def setup_wfn(sys, ham, dm_alpha, dm_beta):
     fock_alpha = sys.lf.create_one_body(sys.wfn.nbasis)
     fock_beta = sys.lf.create_one_body(sys.wfn.nbasis)
     ham.compute_fock(fock_alpha, fock_beta)
-    projSys.wfn.invalidate()
-    projSys.wfn.update_exp(fock_alpha, fock_beta, projSys.get_overlap(), projD_alpha, projD_beta) #incase we have fractional occ
+    sys.wfn.invalidate()
+    sys.wfn.update_exp(fock_alpha, fock_beta, ham.overlap, 
+                       sys.lf.create_one_body_from(dm_alpha), 
+                       sys.lf.create_one_body_from(dm_beta)) #incase we have fractional occ
 
 def default_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False):
     if method == "DFT":
@@ -301,9 +303,22 @@ def frac_target_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False):
     sys, ham, args, opt = setup_system(basis, method, file='test/water_equilim.xyz', 
                                            Exc=Exc, ifCheat=ifCheat, isFrac=isFrac)
     
-    print sys.wfn.exp_alpha.occ
+    sys.wfn.exp_alpha.occupations[4] = 0.5
+    sys.wfn.exp_beta.occupations[4] = 0.5
     
-    cons = setup_cons(sys, args, N=opt["N"], N2=opt["N2"])
+    dm_a = sys.lf.create_one_body(sys.wfn.nbasis) 
+    sys.wfn.exp_alpha.compute_density_matrix(dm_a)
+    dm_b = sys.lf.create_one_body(sys.wfn.nbasis) 
+    sys.wfn.exp_beta.compute_density_matrix(dm_b)
+    
+    sys.wfn.invalidate()
+    setup_wfn(sys, ham, dm_a._array, dm_b._array)
+    frac_args, N, N2 = setup_guess(sys, (sys.wfn.exp_alpha._coeffs, sys.wfn.exp_alpha.occupations,
+                                          sys.wfn.exp_alpha.energies, sys.wfn.exp_beta._coeffs, 
+                                          sys.wfn.exp_beta.occupations, sys.wfn.exp_beta.energies),
+                                  isFrac=isFrac)
+    
+    cons = setup_cons(sys, args, N=4.5, N2=4.5)
     x_star = setup_lg(sys, ham, cons, args, basis, method, isFrac=isFrac)
     check_E(ham, targetE)
 
@@ -343,7 +358,6 @@ def setup_system(basis, method, file, ifCheat = False, isFrac = False,
         assert False, "not a valid level of theory"
     dm_a, dm_b, fock_alpha, fock_beta, promol_args = initialGuess.promol_orbitals(system, ham, basis, 
                                                                                   ifCheat=ifCheat, charge_target=charge_target)
-
     args, N, N2 = setup_guess(system, promol_args, dm_a, dm_b, isFrac=isFrac)
     
     if Ntarget_alpha is not None and Ntarget_beta is not None:
@@ -371,12 +385,15 @@ def setup_guess(system, promol_args, dm_a=None, dm_b=None, isFrac=False):
     return args, N, N2
     
 def setup_lg(sys, ham, cons, args, basis, method, Exc=None, isFrac=False):
+    sys.wfn.invalidate() #Safety check. Make sure we aren't computing with cheat values.
+    ham.invalidate()
+    
     if isFrac:
         assert len(args) > 6
-    
     solver = NewtonKrylov()
+
     lg = Lagrangian(sys, ham, cons, isFrac=isFrac)
-    
+
     x0 = initialGuess.prep_D(lg, *args)
 
     msg = "Start " + method +" "
@@ -421,9 +438,9 @@ def check_E(ham, targetE):
 
 # default_h2o_calc('sto-3g', "HF", -74.965901, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('3-21G', "HF", -75.583747447860, ifCheat=True, isFrac=True) #NWCHEM
-default_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
+# default_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('3-21G', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
 
 # projected_h2o_calc('sto-3g', '6-31G', "DFT", -67.9894175486548, ifCheat=True, isFrac=True) #Horton
 
-# frac_target_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
+frac_target_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
