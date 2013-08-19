@@ -51,7 +51,7 @@
 
 
 import numpy as np
-import scipy.sparse as spr
+import mpmath as mp
 
 from horton.log import log
 
@@ -212,7 +212,8 @@ class DenseLinalgFactory(LinalgFactory):
         nbasis = nbasis or self._default_nbasis
         return DenseOneBody(nbasis)
     
-    def create_one_body_from(self, A):
+    @staticmethod
+    def create_one_body_from(A):
         result = DenseOneBody(A.shape[0])
         result._array = A
         return result
@@ -280,6 +281,12 @@ class DenseLinalgFactory(LinalgFactory):
     def get_memory_two_body(self, nbasis=None):
         return nbasis**4*8
 
+    @classmethod
+    def IVtoDense(cls, *vars):
+        print "changing back to DenseOneBody, max uncertainty:"
+        print [max([j.delta for j in i._array]) for i in vars]
+#         assert False
+        return [cls.create_one_body_from(i._to_numpy()) for i in vars]
 
 class DenseExpansion(LinalgObject):
     """An expansion of several functions in a basis with a dense matrix of
@@ -826,8 +833,9 @@ class TriangularLinalgFactory(DenseLinalgFactory):
         nbasis = nbasis or self._default_nbasis
         return TriangularOneBody(nbasis)
     
-    def create_one_body_from(self, A):
-        assert (np.abs(A-A.T) < 1e-10).all() #is it symmetric?
+    @staticmethod
+    def create_one_body_from(A):
+#         assert (np.abs(A-A.T) < 1e-10).all(), (A-A.T) #is it symmetric?
         result = TriangularOneBody(A.shape[0], A)
 #         result.isymmetrize()
         return result
@@ -877,3 +885,189 @@ class TriangularOneBody(DenseOneBody):
         self._dense_array = self._to_numpy()
     def _update_array(self):
         self.assign_from(self._dense_array)
+    
+class IVOneBody(OneBody):
+    def __init__(self, nbasis, A=None):
+        """
+           **Arguments:**
+
+           nbasis
+                The number of basis functions.
+        """
+        if A is None:
+            self._array = np.zeros((nbasis, nbasis))
+        else:
+            self._array = A
+        self._dense_array = self._array.copy()
+        self._array = mp.iv.matrix(self._array)
+#         log.mem.announce(self._array.nbytes) #WARNING WARNING: Not announcing memory usage for interval arithmetic object
+
+    def iv2float(self, iv):
+        fl = float(str(iv.mid).split(",")[0][1:])
+        return fl
+
+    def ravel(self):
+        np_x = []
+        for i in np.arange(self._array.rows):
+            for j in np.arange(i,self._array.cols):
+                np_x.append(self.iv2float(self._array[i,j]))
+        return np.array(np_x)
+    
+    def set_elements_from_vec(self, np_x):
+        assert np_x.size == self.nbasis*(self.nbasis+1)/2.
+        ind = np.triu_indices(self.nbasis)
+        for i in np.arange(np_x.size):
+            self._array[ind[0][i], ind[1][i]] = np_x[i]
+            self._array[ind[1][i], ind[0][i]] = np_x[i] #symmetry
+
+    def _to_dense_one_body(self):
+        result = DenseOneBody(self.nbasis)
+        np_array = self._to_numpy(self._array)
+        result.assign_from(np_array)
+        return result
+
+    @classmethod
+    def from_hdf5(cls, grp, lf):
+        nbasis = grp['array'].shape[0]
+        result = cls(nbasis)
+        grp['array'].read_direct(result._array)
+        return result
+
+    def read_from_hdf5(self, grp):
+        if grp.attrs['class'] != self.__class__.__name__:
+            raise TypeError('The class of the one-body operator in the HDF5 file does not match.')
+        grp['array'].read_direct(self._array)
+
+    def to_hdf5(self, grp):
+        grp.attrs['class'] = self.__class__.__name__
+        grp['array'] = self._array
+
+    def _get_nbasis(self):
+        '''The number of basis functions'''
+        return self._array.rows
+
+    nbasis = property(_get_nbasis)
+
+    def set_element(self, i, j, value):
+        self._array[i,j] = value
+        self._array[j,i] = value
+
+    def get_element(self, i, j):
+        return self._array[i,j]
+
+    def assign(self, other):
+        if not isinstance(other, IVOneBody):
+            assert False,"the other object must be an interval matrix"
+        for i in np.arange(other._array.rows):
+            for j in np.arange(other._array.cols):
+                self._array[i,j] = other._array[i,j]
+
+    def copy(self):
+        result = IVOneBody(self.nbasis)
+        result.assign(self)
+        return result
+
+    def check_symmetry(self):
+        '''Check the symmetry of the array. For testing only.'''
+        assert mp.norm(self._array - self._array.T) < 1e-12
+
+    def reset(self):
+        for i in nd_array.shape[0]:
+            for j in nd_array.shape[1]:
+                np_array[i,j] = 0
+
+    def iadd(self, other, factor=1):
+        self._array += other._array*factor
+        return self
+    
+    def isub(self, other):
+        self.iadd(other, -1)
+        return self
+
+    def imul(self, other):
+        if isinstance(other, IVOneBody): #TODO: Abstract out dense requirement
+            self._array = self._array*other._array
+        else:
+            assert isinstance(other, int) or isinstance(other, float)
+            self.iscale(other)
+        return self
+
+    def expectation_value(self, dm):
+        result = 0
+        temp = self._array*dm._array
+        for i in temp.rows:
+            result += temp[i,i] 
+        return result
+
+    def trace(self):
+        result = 0
+        for i in self._array.rows:
+            result += temp[i,i]
+        return result
+
+    def itranspose(self):
+        '''In-place transpose'''
+        self._array = self._array.T
+
+    def iscale(self, factor):
+        self._array *= factor
+
+    def dot(self, vec0, vec1):
+        return vec0*self._array*vec1
+
+    def idot(self, other):
+        self._array = self._array*other._array
+
+    def distance(self, other):
+        return max(self._array - other._array)
+
+#     def apply_basis_permutation(self, permutation):
+#         '''Reorder the coefficients for a given permutation of basis functions.
+#         '''
+#         self._array[:] = self._array[permutation]
+#         self._array[:] = self._array[:,permutation]
+# 
+#     def apply_basis_signs(self, signs):
+#         '''Correct for different sign conventions of the basis functions.'''
+#         self._coeffs *= signs
+#         self._coeffs *= signs.reshape(-1,1)
+    
+    def isymmetrize(self):
+        self._array = 0.5*(self._array + self._array.T)    
+     
+    def assign_from(self, A):
+        assert isinstance(A, IVMatrix)
+        self._array = A._array
+    
+    def _to_numpy(self):
+        np_array = np.ndarray([self.nbasis, self.nbasis])
+        for i in np.arange(np_array.shape[0]):
+            for j in np.arange(np_array.shape[1]):
+                np_array[i,j] = self.iv2float(self._array[i,j])
+        return np_array
+    
+    def _update_dense(self):
+        self._dense_array = self._to_numpy()
+    
+    def _update_array(self):
+        self._array = self._array = mp.iv.matrix(self._dense_array)
+        
+    def iscale_diag(self, factor):
+        for i in np.arange(self._array.rows):
+            self._array[i,i] *= factor
+            
+class IVLinalgFactory(DenseLinalgFactory):
+    def create_one_body(self, nbasis=None):
+        nbasis = nbasis or self._default_nbasis
+        return IVOneBody(nbasis)
+    
+    @staticmethod
+    def create_one_body_from(A):
+        result = IVOneBody(A.shape[0], A)
+        return result
+    
+    @classmethod
+    def DensetoIV(cls, *vars):
+        return [cls.create_one_body_from(i._array) for i in vars]
+                
+    

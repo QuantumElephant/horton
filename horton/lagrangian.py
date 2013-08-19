@@ -2,6 +2,7 @@ import numpy as np
 import copy as cp
 from horton.MatrixHelpers import *
 import time
+from horton import matrix
 
 #TODO: profile to figure out a quick way of evaluating this function.
 class Lagrangian(object):
@@ -258,6 +259,7 @@ class Lagrangian(object):
                 dLdP.isymmetrize() 
 #                print "dLdP", dLdP
         
+            
             fixed_terms.append(dLdD)
             fixed_terms.append(dLdB)
             if self.isFrac:
@@ -393,9 +395,15 @@ class Lagrangian(object):
         self.nIter+=1
     
     def grad_wrap(self,x): 
+        self.sys._lf = matrix.IVLinalgFactory()
+        
         args = self.matHelper.vecToMat(x)
         
         grad = self.calc_grad(*args)
+        
+        self.sys._lf = matrix.TriangularLinalgFactory()
+        grad = matrix.TriangularLinalgFactory.IVtoDense(*grad)
+        
         result = self.matHelper.matToVec(*grad)
         
         return result
