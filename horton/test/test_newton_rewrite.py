@@ -252,52 +252,28 @@ def setup_wfn(sys, ham, dm_alpha, dm_beta):
                        sys.lf.create_one_body_from(dm_alpha), 
                        sys.lf.create_one_body_from(dm_beta)) #incase we have fractional occ
 
-def default_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False):
+def default_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False, addNoise=None):
     if method == "DFT":
-        Exc = "c_vwn"
+        Exc = "x"
     else:
         Exc = None
     sys, ham, args, opt = setup_system(basis, method, file='test/water_equilim.xyz', 
                                            Exc=Exc, ifCheat=ifCheat, isFrac=isFrac)
+    if addNoise is not None:
+        args = gen_noise(addNoise, *args)
     cons = setup_cons(sys, args, N=opt["N"], N2=opt["N2"])
     x_star = setup_lg(sys, ham, cons, args, basis, method, isFrac=isFrac)
     check_E(ham, targetE)
-    
-# def frac_target_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False):
-#     if method == "DFT":
-#         Exc = "c_vwn"
-#     else:
-#         Exc = None
-#     low_sys, low_ham, low_args, low_opt = setup_system(basis, method, file='test/water_equilim.xyz', 
-#                                            Exc=Exc, ifCheat=True, isFrac=isFrac, 
-#                                            Ntarget_alpha = 4, Ntarget_beta=4)
-#     high_sys, high_ham, high_args, high_opt = setup_system(basis, method, file='test/water_equilim.xyz', 
-#                                            Exc=Exc, ifCheat=True, isFrac=isFrac, 
-#                                            Ntarget_alpha = 5, Ntarget_beta=5)
-#     
-#     frac_sys, frac_ham, frac_args, frac_opt = setup_system(basis, method, file='test/water_equilim.xyz', 
-#                                            Exc=Exc, ifCheat=True, isFrac=isFrac, 
-#                                            Ntarget_alpha = 4.5, Ntarget_beta=4.5)
-#     
-#     fracDM_alpha = (low_args[0]+high_args[0])/2.
-#     if isFrac:
-#         fracDM_beta = (low_args[3]+high_args[3])/2.
-#     else:
-#         fracDM_beta = (low_args[2]+high_args[2])/2.  
-#      
-#     setup_wfn(frac_sys, frac_ham, fracDM_alpha, fracDM_beta)
-#     frac_args, N, N2 = setup_guess(frac_sys, (frac_sys.wfn.exp_alpha._coeffs, frac_sys.wfn.exp_alpha.occupations,
-#                                             frac_sys.wfn.exp_alpha.energies, frac_sys.wfn.exp_beta._coeffs, 
-#                                             frac_sys.wfn.exp_beta.occupations, frac_sys.wfn.exp_beta.energies),
-#                                   isFrac=isFrac)
-#     
-#     cons = setup_cons(frac_sys, frac_args, N=frac_opt["N"], N2=frac_opt["N2"])
-#     x_star = setup_lg(frac_sys, frac_ham, cons, frac_args, basis, method, isFrac=isFrac)
-#     check_E(ham, targetE)
+
+def gen_noise(addNoise, *args):
+    result = []
+    for i in args:
+        result.append(i+(addNoise*np.random.rand(*i.shape)))
+    return result
 
 def frac_target_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False):
     if method == "DFT":
-        Exc = "c_vwn"
+        Exc = "x"
     else:
         Exc = None
     sys, ham, args, opt = setup_system(basis, method, file='test/water_equilim.xyz', 
@@ -438,9 +414,9 @@ def check_E(ham, targetE):
 
 # default_h2o_calc('sto-3g', "HF", -74.965901, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('3-21G', "HF", -75.583747447860, ifCheat=True, isFrac=True) #NWCHEM
-# default_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
-# default_h2o_calc('3-21G', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
+# default_h2o_calc('sto-3g', "DFT", -74.0689451960386, ifCheat=True, isFrac=True) #NWCHEM
+default_h2o_calc('6-31G', "DFT", -74.7453087988914, ifCheat=True, isFrac=True) #NWCHEM
 
 # projected_h2o_calc('sto-3g', '6-31G', "DFT", -67.9894175486548, ifCheat=True, isFrac=True) #Horton
 
-frac_target_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
+# frac_target_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM

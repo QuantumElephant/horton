@@ -31,7 +31,7 @@ class NewtonKrylov(object):
 #        op.nonlin.KrylovJacobian
 #        x_star= op.newton_krylov(lg.grad_wrap, x0, verbose=True, method='bicgstab', f_tol = 1e-8, callback = lg.callback_system)
 #        x_star= op.newton_krylov(lg.grad_wrap, x0, verbose=True, method='lgmres', f_tol = 1e-8, callback = lg.callback_system, inner_M=jac)
-        x_star= op.newton_krylov(lg.grad_wrap, x0, verbose=True, method='lgmres', f_tol = 1e-8, callback = lg.callback_system)
+        x_star= op.newton_krylov(lg.grad_wrap, x0, verbose=True, method='lgmres', f_tol = 1e-7, callback = lg.callback_system)
 #         x_star= op.newton_krylov(lg.grad_wrap, x0, verbose=True, method='lgmres', rdiff = 1e-10, f_tol = 1e-6, callback = lg.callback_system)
         
 #        x_star= op.broyden2(lg.grad_wrap, x0, verbose=True, f_tol = 1e-8, callback = lg.callback_system)

@@ -52,13 +52,14 @@ def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False, charge
                 
                 atom_sys.init_wfn(charge=charge, mult=mult,restricted=False)
             else:
+                print "Calculating atomic density for element " + str(i)
                 atom_sys.init_wfn(restricted=False)     
     
             nbasis.append(atom_sys.wfn.nbasis)
             guess_hamiltonian_core(atom_sys)
     
             if ham.grid is not None:
-                grid = BeckeMolGrid(atom_sys, random_rotate=False)
+                grid = BeckeMolGrid(atom_sys, random_rotate=False) #using grid
             else:
                 grid = None
             atom_ham = Hamiltonian(atom_sys, ham.terms, grid)
@@ -111,8 +112,17 @@ def promol_guess(orb_a, occ_a, energy_a, orb_b, occ_b, energy_b, ifFracTarget=Fa
     return pro_da, pro_ba, pro_db, pro_bb, mu_a, mu_b, N, N2
 
 def int_promol_mu(energy, occ):
-    homo = np.array(np.max(energy[occ > 0.95]))
-    lumo = np.array(np.min(energy[occ < 0.05]))
+    if energy[occ > 0.95].any():
+        homo = np.array(np.max(energy[occ > 0.95]))
+    else:
+        print "WARNING: No occupied orbitals"
+        homo = np.zeros(1)
+    
+    if energy[occ < 0.05].any():
+        lumo = np.array(np.min(energy[occ < 0.05]))
+    else:
+        print "WARNING: No unoccupied orbitals"
+        lumo = np.zeros(1)
     mu = (homo + lumo)/2.
     
     return mu
