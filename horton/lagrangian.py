@@ -395,14 +395,9 @@ class Lagrangian(object):
         self.nIter+=1
     
     def grad_wrap(self,x): 
-        self.sys._lf = matrix.IVLinalgFactory()
-        
         args = self.matHelper.vecToMat(x)
         
         grad = self.calc_grad(*args)
-        
-        self.sys._lf = matrix.TriangularLinalgFactory()
-        grad = matrix.TriangularLinalgFactory.IVtoDense(*grad)
         
         result = self.matHelper.matToVec(*grad)
         

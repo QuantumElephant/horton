@@ -468,10 +468,9 @@ class System(object):
         if new:
             overlap = self.lf.create_one_body(self.wfn.nbasis)
             
-            overlap = overlap._to_dense_one_body()
+            overlap._update_dense()
             self.obasis.compute_overlap(overlap)
             overlap._update_array()
-            overlap = self.lf.create_one_body_from(overlap._to_numpy())
             
             self.update_chk('cache.olp')
         return overlap
@@ -482,10 +481,9 @@ class System(object):
         if new:
             kinetic = self.lf.create_one_body(self.wfn.nbasis)
             
-            kinetic = kinetic._to_dense_one_body()
+            kinetic._update_dense()
             self.obasis.compute_kinetic(kinetic)
             kinetic._update_array()
-            kinetic = self.lf.create_one_body_from(kinetic._to_numpy())
             
             self.update_chk('cache.kin')
         return kinetic
@@ -497,10 +495,9 @@ class System(object):
             nuclear_attraction = self.lf.create_one_body(self.wfn.nbasis)
             # TODO: ghost atoms and extra charges
             
-            nuclear_attraction = nuclear_attraction._to_dense_one_body()
+            nuclear_attraction._update_dense()
             self.obasis.compute_nuclear_attraction(self.numbers.astype(float), self.coordinates, nuclear_attraction)
             nuclear_attraction._update_array()
-            nuclear_attraction = self.lf.create_one_body_from(nuclear_attraction._to_numpy()) 
             
             self.update_chk('cache.na')
         return nuclear_attraction
