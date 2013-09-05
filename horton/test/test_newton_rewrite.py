@@ -209,7 +209,7 @@ def test_quadratic_stepped_constraints():
 
 def projected_h2o_calc(origBasis, projBasis, method, targetE, ifCheat=False, isFrac=False):
     if method == "DFT":
-        Exc = "c_vwn"
+        Exc = "x"
     else:
         Exc = None
     origSys, origHam, origArgs, origOpt = setup_system(origBasis, method, file='test/water_equilim.xyz',

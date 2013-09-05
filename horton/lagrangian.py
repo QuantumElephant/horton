@@ -227,12 +227,33 @@ class Lagrangian(object):
             sdsbs = OneBody.matrix_product(S,D,sbs) 
             sbsds = OneBody.matrix_product(sbs,D,S) 
             
+            ####TESTING
+             
+            self.sys.lf.enable_dual()
+            for key,i in locals().iteritems():
+                if isinstance(i, matrix.IVDualOneBody):
+                    i.enable_dual()
+             
+            #TESTING####
+            
             dLdD = self.matHelper.new_one_body()
             dLdD.isub(sbs)
             dLdD.iadds(sdsbs, sbsds)
             dLdD.isymmetrize()
             dLdD.iadd(fock)
 #            print "fock - outside", dLdD
+            
+            ####TESTING
+             
+            self.sys.lf.disable_dual()
+            for key,i in locals().iteritems():
+                if isinstance(i, matrix.IVDualOneBody):
+                    numError = i.disable_dual()
+                    if numError is not None:
+                        print "On matrix " + key + ", " + str(numError) 
+             
+            print "next \n"
+            #TESTING####
             
             #dL/dB block
             sds = OneBody.matrix_product(S,D,S)
@@ -248,7 +269,7 @@ class Lagrangian(object):
             dLdB.iadds(sdsds, spsps)
             dLdB.isymmetrize()
 #            print "dLdB", dLdB
-            
+
             if self.isFrac:
                 #dL/dP block
                 spsbs = OneBody.matrix_product(S,P,sbs) 
@@ -258,12 +279,23 @@ class Lagrangian(object):
                 dLdP.iadds(spsbs, sbsps)
                 dLdP.isymmetrize() 
 #                print "dLdP", dLdP
-        
             
             fixed_terms.append(dLdD)
             fixed_terms.append(dLdB)
             if self.isFrac:
                 fixed_terms.append(dLdP)
+
+            ####TESTING
+            for key,i in locals().iteritems():
+                if isinstance(i, matrix.IVDualOneBody):
+                    assert not i.isDual, key
+            #TESTING####
+
+            print id(locals()["dLdD"])
+            print id(dLdD)
+            print id(fixed_terms[0])
+            
+            print [i.isDual for i in fixed_terms]
             
         result = fixed_terms
         
@@ -271,6 +303,8 @@ class Lagrangian(object):
         
         for con,mul in zip(self.constraints, args[self.nfixed_args:]):
             if con.select == "alpha":
+                print result[0].isDual
+                print da.isDual
                 result[0].iadd(con.D_gradient(da, mul))
                 result.append(con.self_gradient(da))
             elif con.select == "beta":

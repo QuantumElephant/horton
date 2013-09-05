@@ -212,8 +212,7 @@ class DenseLinalgFactory(LinalgFactory):
         nbasis = nbasis or self._default_nbasis
         return DenseOneBody(nbasis)
     
-    @staticmethod
-    def create_one_body_from(A):
+    def create_one_body_from(self,A):
         result = DenseOneBody(A.shape[0])
         result._array = A
         return result
@@ -833,8 +832,7 @@ class TriangularLinalgFactory(DenseLinalgFactory):
         nbasis = nbasis or self._default_nbasis
         return TriangularOneBody(nbasis)
     
-    @staticmethod
-    def create_one_body_from(A):
+    def create_one_body_from(self, A):
 #         assert (np.abs(A-A.T) < 1e-10).all(), (A-A.T) #is it symmetric?
         result = TriangularOneBody(A.shape[0], A)
 #         result.isymmetrize()
@@ -1196,7 +1194,8 @@ class IVDualOneBody(TriangularOneBody):
             assert isinstance(A, np.ndarray)
             self._array = A
 
-        self._dense_to_dual()
+        if isDual:
+            self._dense_to_dual()
         
         
     def enable_dual(self):
@@ -1210,7 +1209,8 @@ class IVDualOneBody(TriangularOneBody):
         self.isDual = False
 #         mids = [i.mid for i in self._dual_array]
         deltas = [i.delta for i in self._dual_array]
-        print "max numerical errors: " + str(max(deltas))
+        if max(deltas) > 1e-20:
+            return max(deltas)
     
     def set_elements_from_vec(self, np_x):
         if self.isDual:
@@ -1355,16 +1355,22 @@ class IVDualOneBody(TriangularOneBody):
         super(IVDualOneBody, self).iscale_diag(factor)
 
 class IVDualLinalgFactory(DenseLinalgFactory):
+    def __init__(self, default_nbasis=None, isDual=False):
+        self.isDual = isDual
+    
+    def enable_dual(self):
+        self.isDual = True
+    def disable_dual(self):
+        self.isDual = False
+    
     def create_one_body(self, nbasis=None):
         nbasis = nbasis or self._default_nbasis
-        return IVDualOneBody(nbasis)
+        return IVDualOneBody(nbasis, isDual=self.isDual)
     
-    @staticmethod
-    def create_one_body_from(A):
-        result = IVDualOneBody(A.shape[0], A)
+    def create_one_body_from(self,A):
+        result = IVDualOneBody(A.shape[0], A, isDual=self.isDual)
         return result
-    
-    @classmethod
+        @classmethod
     def DensetoIV(cls, *vars):
         return [cls.create_one_body_from(i._array) for i in vars]
                 
