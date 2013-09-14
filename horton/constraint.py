@@ -42,75 +42,33 @@ class Constraint(object):
         term = CustomGridFixedTerm(grid, potential.squeeze(), suffix)
         operator = term.get_operator(system)[0]._array
         return operator
-    
-    def next(self):
-        if not hasattr(self, 'steps_array') or self.steps_array.size == 0:
-            return False
-        print "Setting old C: " +str(self.C)
-        self.C = self.steps_array[0]
-        print "to new C: " + str(self.C)
-        self.steps_array = self.steps_array[1:]
-        return True
-    
+
 class LinearConstraint(Constraint):
-    def __init__(self, sys, C, L, select, C_init = None, D = None, steps = 10):
-        if D is not None and C_init is None:
-            C_init = (L*sys.get_overlap()*D).trace()
-        if C_init is not None:
-            C_final = C
-            self.steps_array = np.linspace(C_init, C_final, steps)[1:]
-        else:
-            C_init = C
-        super(LinearConstraint, self).__init__(sys, C_init, L, select)
-    
-    def lagrange_old(self, D, mul):
-        S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
-        P = np.dot(S,D)
-        mul = mul.squeeze() #TODO: remove me
-        return -mul*(np.dot(self.L._array.ravel(), P.ravel()) - self.C)
-    def self_gradient_old(self, D):
-        S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
-        P = np.dot(S,D)
-        return self.C - np.dot(self.L._array.ravel(), P.ravel()) #Breaks compatibility with pre-constraint rewrite code. Original form below.
-#        return self.C - np.trace(np.dot(P, self.L))
-    def D_gradient_old(self, D, Mul):
-        S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
-        Mul = Mul.squeeze()
-        SL = np.dot(S, self.L._array); 
-        return -Mul*0.5*(SL + SL.T) #Should this always be negative?
-    
     def lagrange(self, D, mul):
         S = self.sys.get_overlap()
         mul = mul.squeeze()
-        lsd = OneBody.matrix_product(self.L, S, D)
+        lsd = self.sys.lf.create_one_body_eye()
+        lsd.imuls(self.L, S, D)
         return -mul*(lsd.trace() - self.C)
     def self_gradient(self, D):
         S = self.sys.get_overlap()
-        lsd = OneBody.matrix_product(self.L, S, D)
+        lsd = self.sys.lf.create_one_body_eye()
+        lsd.imuls(self.L, S, D)
         return self.C - lsd.trace()
     def D_gradient(self, D, Mul):
         S = self.sys.get_overlap()
         Mul = Mul.squeeze()
-        SL = OneBody.matrix_product(S, self.L) 
+        SL = self.sys.lf.create_one_body_eye()
+        SL.imuls(S, self.L)
         SL.isymmetrize()
         SL.iscale(-Mul)
         return SL  #Should this always be negative?
     
 class QuadraticConstraintOLD(Constraint):
-    def __init__(self, sys, C, L, select, C_init = None, D = None, steps = 10):
+    def __init__(self, sys, C, L, select):
         assert len(L) == 2
-        self.sys = sys
-        if D is not None and C_init is None:
-            S = self.sys.get_overlap()._array
-            P = np.dot(S, D)
-            C_init = np.trace(reduce(np.dot,[L[0], S, D, L[1], S, D]))
-        if C_init is not None:
-            C_final = C/2.
-            self.steps_array = np.linspace(C_init/2., C_final, steps)[1:]
-        else:
-            C_init = C
         
-        super(QuadraticConstraint, self).__init__(sys, C_init/2., L, select)
+        super(QuadraticConstraint, self).__init__(sys, C, L, select)
     def lagrange(self, D, mul):
         S = self.sys.get_overlap()._array #don't have lg.toNumpy() yet.
         P = np.dot(S,D)
@@ -142,24 +100,3 @@ class QuadraticConstraintOLD(Constraint):
 #        assert (np.abs(result - result.T) < 1e-8).all()
         
         return result #Should this always be negative?
-    
-#     def combGrad(self, x): #testing
-#         Mul = x[-1]
-#         D = x[:-1].reshape(7,7)
-#         
-#         dLdD = self.D_gradient(D, Mul)
-# #        assert (np.abs(dLdD - dLdD.T) < 1e-8).all()
-#         
-#         result = [dLdD.ravel(), self.self_gradient(D)]
-#         result = np.hstack(result)
-#         
-#         return result
-#     
-#     def reshapeX(self,x):
-#         Mul = x[-1]
-#         D = x[:-1].reshape(7,7)
-#         
-#         result = self.lagrange(D, Mul)
-# #        print result
-#         
-#         return result

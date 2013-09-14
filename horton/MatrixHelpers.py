@@ -15,9 +15,9 @@ class MatrixHelpers(object):
         raise NotImplementedError
     def calc_offsets(self):
         raise NotImplementedError
-    def new_one_body(self):
+    def new_one_body(self): #remove
         return self.sys.lf.create_one_body(self.shapes[0])
-    def new_one_body_from(self, A):
+    def new_one_body_from(self, A): #remove
         return self.sys.lf.create_one_body_from(A)
     def toOneBody(self, *args):
         result = []

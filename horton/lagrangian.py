@@ -1,5 +1,6 @@
 import numpy as np
 import copy as cp
+import mpmath as mp
 from horton.MatrixHelpers import *
 import time
 from horton import matrix
@@ -196,7 +197,9 @@ class Lagrangian(object):
             [self.ham.cache.invalidate(i) for i in ('op_coulomb', 'op_exchange_fock_alpha', 'op_exchange_fock_beta')]
         self.sys.wfn.update_dm("alpha", da) #TODO: Fix for restricted
         self.sys.wfn.update_dm("beta", db)
-        self.sys.wfn.update_dm("full", OneBody.add_matrix(da,db))
+        dadb = self.sys.lf.create_one_body()
+        dadb.iadds(da,db)
+        self.sys.wfn.update_dm("full", dadb)
     
         for i in [self.fock_alpha, self.fock_beta]:
             i.reset()
@@ -223,48 +226,35 @@ class Lagrangian(object):
 #             dLdD = fock #already OneBody
 #            print "fock", dLdD
             
-            sbs = OneBody.matrix_product(S,B,S)
-            sdsbs = OneBody.matrix_product(S,D,sbs) 
-            sbsds = OneBody.matrix_product(sbs,D,S) 
+            sbs = self.sys.lf.create_one_body_eye()
+            sdsbs = self.sys.lf.create_one_body_eye()
+            sbsds = self.sys.lf.create_one_body_eye()
             
-            ####TESTING
-             
-            self.sys.lf.enable_dual()
-            for key,i in locals().iteritems():
-                if isinstance(i, matrix.IVDualOneBody):
-                    i.enable_dual()
-             
-            #TESTING####
+            sbs.imuls(S,B,S)
+            sdsbs.imuls(S,D,sbs) 
+            sbsds.imuls(sbs,D,S) 
             
-            dLdD = self.matHelper.new_one_body()
+            dLdD = self.sys.lf.create_one_body()
             dLdD.isub(sbs)
             dLdD.iadds(sdsbs, sbsds)
             dLdD.isymmetrize()
             dLdD.iadd(fock)
 #            print "fock - outside", dLdD
             
-            ####TESTING
-             
-            self.sys.lf.disable_dual()
-            for key,i in locals().iteritems():
-                if isinstance(i, matrix.IVDualOneBody):
-                    numError = i.disable_dual()
-                    if numError is not None:
-                        print "On matrix " + key + ", " + str(numError) 
-             
-            print "next \n"
-            #TESTING####
-            
             #dL/dB block
-            sds = OneBody.matrix_product(S,D,S)
-            sdsds = OneBody.matrix_product(S,D,S,D,S)
+            sds = self.sys.lf.create_one_body_eye()
+            sdsds = self.sys.lf.create_one_body_eye()
+            
+            sds.imuls(S,D,S)
+            sdsds.imuls(S,D,S,D,S)
             
             if self.isFrac:
-                spsps = OneBody.matrix_product(S,P,S,P,S)
+                spsps = self.sys.lf.create_one_body_eye()
+                spsps.imuls(S,P,S,P,S)
             else:
-                spsps = self.matHelper.new_one_body()
+                spsps = self.sys.lf.create_one_body()
             
-            dLdB = self.matHelper.new_one_body()
+            dLdB = self.sys.lf.create_one_body()
             dLdB.isub(sds)
             dLdB.iadds(sdsds, spsps)
             dLdB.isymmetrize()
@@ -272,10 +262,13 @@ class Lagrangian(object):
 
             if self.isFrac:
                 #dL/dP block
-                spsbs = OneBody.matrix_product(S,P,sbs) 
-                sbsps = OneBody.matrix_product(sbs,P,S) 
+                spsbs = self.sys.lf.create_one_body_eye()
+                sbsps = self.sys.lf.create_one_body_eye()
                 
-                dLdP = self.matHelper.new_one_body()
+                spsbs.imuls(S,P,sbs) 
+                sbsps.imuls(sbs,P,S) 
+                
+                dLdP = self.sys.lf.create_one_body()
                 dLdP.iadds(spsbs, sbsps)
                 dLdP.isymmetrize() 
 #                print "dLdP", dLdP
@@ -284,27 +277,15 @@ class Lagrangian(object):
             fixed_terms.append(dLdB)
             if self.isFrac:
                 fixed_terms.append(dLdP)
-
-            ####TESTING
-            for key,i in locals().iteritems():
-                if isinstance(i, matrix.IVDualOneBody):
-                    assert not i.isDual, key
-            #TESTING####
-
-            print id(locals()["dLdD"])
-            print id(dLdD)
-            print id(fixed_terms[0])
-            
-            print [i.isDual for i in fixed_terms]
             
         result = fixed_terms
+        
+        
         
         assert len(self.constraints) == len(args[self.nfixed_args:])
         
         for con,mul in zip(self.constraints, args[self.nfixed_args:]):
             if con.select == "alpha":
-                print result[0].isDual
-                print da.isDual
                 result[0].iadd(con.D_gradient(da, mul))
                 result.append(con.self_gradient(da))
             elif con.select == "beta":
@@ -382,7 +363,8 @@ class Lagrangian(object):
         self.ham.invalidate()
         self.sys.wfn.update_dm("alpha", Da)
         self.sys.wfn.update_dm("beta", Db)
-        self.sys.wfn.update_dm("full", OneBody.add_matrix(Da,Db))
+        dadb = self.sys.lf.create_one_body()
+        self.sys.wfn.update_dm("full", dadb.imuls(Da,Db))
 #       self.sys.wfn.update_dm("spin", Da-Db)
         result = self.ham.compute_energy()
 #       print "The energy is " + str(result)
@@ -431,7 +413,15 @@ class Lagrangian(object):
     def grad_wrap(self,x): 
         args = self.matHelper.vecToMat(x)
         
+        ####TESTING
+        self.sys.lf.enable_dual()
+        #TESTING####
+        
         grad = self.calc_grad(*args)
+        
+        ####TESTING
+        self.sys.lf.disable_dual()
+        #TESTING####
         
         result = self.matHelper.matToVec(*grad)
         
