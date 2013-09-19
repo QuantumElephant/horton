@@ -1444,16 +1444,28 @@ class IVDualOneBody(BaseDualOneBody):
     
     def disable_dual(self, writeback=False):
         if self.isDual:
+            deltas = self._calc_dual_error()
+            
             self.isDual = False
-            self._calc_dual_error()
+            if deltas > 1e-30:
+                return deltas
     
     def _writeback(self):
-        return
+        pass
     
     def _calc_dual_error(self):
-#         mids = [i.mid for i in self._dual_array]
-        deltas = [i.delta for i in self._dual_array]
-        return mp.norm(deltas)
+        if self.isDual:
+    #         mids = [i.mid for i in self._dual_array]
+            deltas = [i.delta for i in self._dual_array]
+            
+#             print "max:" + str(max(deltas))
+            
+            if mp.norm(deltas) > 1e-5:
+                raise AbnormalOperationException
+            elif mp.norm(deltas) > 1e-10:
+                print "large numerical error propagated: " + str(deltas.norm())
+            
+            return mp.norm(deltas)
     
     def copy(self):
         result = IVDualOneBody(self.nbasis, isDual=self.isDual)
@@ -1475,22 +1487,23 @@ class MPDualOneBody(BaseDualOneBody):
                 self._array[i,j] = float(self._dual_array[i,j]) 
     
     def _calc_dual_error(self):
-        deltas = mp.matrix(self._dual_array.rows, self._dual_array.cols)
-        for i in np.arange(self._dual_array.rows):
-            for j in np.arange(self._dual_array.cols):
-                deltas[i,j] = abs(self._array[i,j] - self._dual_array[i,j])
-
-        if mp.norm(deltas) > 1e-5:
-            raise AbnormalOperationException
-        elif mp.norm(deltas) > 1e-10:
-            print "large numerical error present: " + str(deltas.norm())
+        if self.isDual:
+            deltas = mp.matrix(self._dual_array.rows, self._dual_array.cols)
+            for i in np.arange(self._dual_array.rows):
+                for j in np.arange(self._dual_array.cols):
+                    deltas[i,j] = abs(self._array[i,j] - self._dual_array[i,j])
+    
+            if mp.norm(deltas) > 1e-5:
+                raise AbnormalOperationException
+            elif mp.norm(deltas) > 1e-10:
+                print "large numerical error present: " + str(deltas.norm())
             
-        return mp.norm(deltas)
+            return mp.norm(deltas)
     
     def disable_dual(self, writeback=False):
         if self.isDual:
-            self.isDual = False
             deltas = self._calc_dual_error()
+            self.isDual = False
 
             if writeback:
                 self._writeback()

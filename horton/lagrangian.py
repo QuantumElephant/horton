@@ -413,7 +413,21 @@ class Lagrangian(object):
     def grad_wrap(self,x): 
         args = self.matHelper.vecToMat(x)
         
+        ####TESTING
+        try:
+            self.sys.lf.enable_dual()
+        except AttributeError:
+            pass
+        #TESTING####
+        
         grad = self.calc_grad(*args)
+        
+        ####TESTING
+        try:
+            self.sys.lf.disable_dual()
+        except AttributeError:
+            pass
+        #TESTING####
         
         result = self.matHelper.matToVec(*grad)
         
