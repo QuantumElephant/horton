@@ -1,6 +1,6 @@
 from horton.newton_rewrite import NewtonKrylov
 from horton.gbasis.cext import GOBasis
-from horton import System, guess_hamiltonian_core, Hamiltonian, converge_scf_oda, HartreeFock, Hartree, BeckeMolGrid, LibXCLDATerm, context, HamiltonianTerm
+from horton import System, guess_hamiltonian_core, Hamiltonian, converge_scf_oda, HartreeFock, Hartree, BeckeMolGrid, LibXCLDATerm, context, HamiltonianTerm, DenseOneBody
 import numpy as np
 import scipy as scp
 import matplotlib.pyplot as plt
@@ -28,22 +28,22 @@ def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False, charge
         
     if ifCheat:
         print "CHEAT MODE ENABLED"
-        cheatSys, fock_alpha, fock_beta = calc_DM(sys, ham, charge_target, mult_target)
+        fock_alpha, fock_beta = calc_DM(sys, ham, charge_target, mult_target)
         
-        dm_a = cheatSys.wfn.dm_alpha.copy()._array
-        dm_b = cheatSys.wfn.dm_beta.copy()._array
+        dm_a = sys.wfn.dm_alpha.copy()
+        dm_b = sys.wfn.dm_beta.copy()
         
-        orb_alpha = cheatSys.wfn.exp_alpha._coeffs
-        orb_beta = cheatSys.wfn.exp_beta._coeffs
+        orb_alpha = sys.wfn.exp_alpha
+        orb_beta = sys.wfn.exp_beta
         
-        occ_alpha = cheatSys.wfn.exp_alpha.occupations
-        occ_beta = cheatSys.wfn.exp_beta.occupations
+        occ_alpha = sys.wfn.exp_alpha.occupations
+        occ_beta = sys.wfn.exp_beta.occupations
         
-        e_alpha = cheatSys.wfn.exp_alpha.energies
-        e_beta = cheatSys.wfn.exp_beta.energies
+        e_alpha = sys.wfn.exp_alpha.energies
+        e_beta = sys.wfn.exp_beta.energies
     else:
         for atomNum,i in enumerate(sys.numbers):
-            atom_sys = System(np.zeros((1,3), float), np.array([i]), obasis=basis) #hacky
+            atom_sys = System(np.zeros((1,3), float), np.array([i]), obasis=basis, lf = sys.lf) #hacky
             
             if isinstance(numChargeMult, np.ndarray) and atomNum in numChargeMult[:,0]:
                 [num, charge, mult] = numChargeMult[np.where(numChargeMult[:,0] == atomNum),:].squeeze()
@@ -67,23 +67,26 @@ def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False, charge
             converge_scf_oda(atom_ham, max_iter=5000)
             reset_ham(sys, ham)
             
-            orb_alpha.append(atom_sys.wfn.exp_alpha._coeffs)
-            orb_beta.append(atom_sys.wfn.exp_beta._coeffs)
+            pro_orb_alpha.append(atom_sys.wfn.exp_alpha)
+            pro_orb_beta.append(atom_sys.wfn.exp_beta)
             
-            occ_alpha.append(atom_sys.wfn.exp_alpha.occupations)
-            occ_beta.append(atom_sys.wfn.exp_beta.occupations)
+            pro_occ_alpha.append(atom_sys.wfn.exp_alpha.occupations)
+            pro_occ_beta.append(atom_sys.wfn.exp_beta.occupations)
             
-            e_alpha.append(atom_sys.wfn.exp_alpha.energies)
-            e_beta.append(atom_sys.wfn.exp_beta.energies)
-            
-        orb_alpha = scp.linalg.block_diag(*orb_alpha)
-        orb_beta = scp.linalg.block_diag(*orb_beta)
+            pro_e_alpha.append(atom_sys.wfn.exp_alpha.energies)
+            pro_e_beta.append(atom_sys.wfn.exp_beta.energies)
         
-        occ_alpha = np.hstack(occ_alpha)
-        occ_beta = np.hstack(occ_beta)
+        orb_alpha = sys.lf.create_one_body()
+        orb_beta = sys.lf.create_one_body()
+            
+        orb_alpha.assign_from_blocks(*pro_orb_alpha)
+        orb_beta.assign_from_blocks(*pro_orb_beta)
+        
+        occ_alpha = np.hstack(pro_occ_alpha)
+        occ_beta = np.hstack(pro_occ_beta)
     
-        e_alpha = np.hstack(e_alpha)
-        e_beta = np.hstack(e_beta)
+        e_alpha = np.hstack(pro_e_alpha)
+        e_beta = np.hstack(pro_e_beta)
     
         dm_a = None
         dm_b = None
@@ -93,8 +96,8 @@ def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False, charge
     
     return dm_a, dm_b, fock_alpha, fock_beta, (orb_alpha, occ_alpha, e_alpha, orb_beta, occ_beta, e_beta)
     
-def promol_guess(orb_a, occ_a, energy_a, orb_b, occ_b, energy_b, ifFracTarget=False):
-    assert occ_a.size == orb_a.shape[0] and occ_b.size == orb_b.shape[0], "initial occupation size: " + str(occ_a.size) + "," + str(occ_b.size) + " basis size: " + str(orb_a.shape[0]) + "," + str(orb_b.shape[0])
+def promol_guess(sys, orb_a, occ_a, energy_a, orb_b, occ_b, energy_b, ifFracTarget=False):
+    assert occ_a.size == orb_a.nbasis and occ_b.size == orb_b.nbasis, "initial occupation size: " + str(occ_a.size) + "," + str(occ_b.size) + " basis size: " + str(orb_a.shape[0]) + "," + str(orb_b.shape[0])
     
     if ifFracTarget:
         mu_a = frac_promol_mu(energy_a, occ_a)
@@ -106,10 +109,13 @@ def promol_guess(orb_a, occ_a, energy_a, orb_b, occ_b, energy_b, ifFracTarget=Fa
     N = np.sum(occ_a)
     N2 = np.sum(occ_b)
     
-    pro_da, pro_ba = promol_dm_b(orb_a, occ_a, energy_a, mu_a)
-    pro_db, pro_bb = promol_dm_b(orb_b, occ_b, energy_b, mu_b)
+    pro_da, pro_ba = promol_dm_b(sys, orb_a, occ_a, energy_a, mu_a)
+    pro_db, pro_bb = promol_dm_b(sys, orb_b, occ_b, energy_b, mu_b)
 
     return pro_da, pro_ba, pro_db, pro_bb, mu_a, mu_b, N, N2
+
+def frac_promol_mu(energy, occ):
+    raise NotImplementedError
 
 def int_promol_mu(energy, occ):
     if energy[occ > 0.95].any():
@@ -127,23 +133,22 @@ def int_promol_mu(energy, occ):
     
     return mu
     
-def promol_dm_b(orb, occ, energy, mu):
-    promol_dm = np.zeros_like(orb)
-    promol_b = np.zeros_like(orb)
+def promol_dm_b(sys, orb, occ, energy, mu):
+    promol_dm = sys.lf.create_one_body()
+    promol_b = sys.lf.create_one_body()
     
-    for eval, evec, eng in zip(occ, orb.T, energy):
-        outer = np.outer(evec, evec)
-        promol_dm += outer*eval
-        
+    promol_dm.outer(orb, occ)
+    
+    coeff = []
+    for eval, eng in zip(occ, energy):
         if eval>0.95 or eval < 0.05:
-            coeff = (eng-mu)/(1-2*eval)
-        else:
-            coeff = 0
-        promol_b += outer*coeff
-        
+            coeff.append((eng-mu)/(1-2*eval))
+        #else: noop
+    coeff = np.hstack(coeff)
+    promol_b.outer(orb, coeff)
     return promol_dm, promol_b
     
-def calc_DM(sys,ham, charge_target, mult_target): #TODO: remove charge + mult
+def calc_DM(sys, ham, charge_target, mult_target): #TODO: remove charge + mult
     guess_hamiltonian_core(sys)
     converged = converge_scf_oda(ham, max_iter=5000)
      
@@ -151,7 +156,7 @@ def calc_DM(sys,ham, charge_target, mult_target): #TODO: remove charge + mult
     fock_beta = sys.lf.create_one_body(sys.wfn.nbasis)
     ham.compute_fock(fock_alpha, fock_beta)
     
-    return sys, fock_alpha._array, fock_beta._array
+    return fock_alpha, fock_beta
 
 def reset_ham(sys,ham):
     for i in ham.terms:
@@ -159,9 +164,23 @@ def reset_ham(sys,ham):
             i.prepare_system(sys, ham.cache, ham.grid)
 
 def promol_frac(dm, sys):
-    s = sys.get_overlap()._array #TODO: abstract out inverse operation in matrix
+    s = sys.get_overlap() #TODO: abstract out inverse operation in matrix
     
-    p = np.dot(np.dot(dm,s) - reduce(np.dot, (dm,s,dm,s)), np.linalg.inv(s))
+    p = sys.lf.create_one_body_eye()
+    p.imuls(dm,s)
+    
+    dsds = sys.lf.create_one_body_eye()
+    dsds.imuls(dm, s, dm, s)
+    
+    p.isubs(dsds)
+    
+    sinv = s.copy()
+    sinv.invert()
+    p.imul(sinv)
+    
+#     p_old = np.dot(np.dot(dm._array,s._array) - reduce(np.dot, (dm._array,s._array,dm._array,s._array)), np.linalg.inv(s._array))
+#     assert np.linalg.norm(p_old - p._array) < 1e-10
+
     return p
     
     
@@ -171,13 +190,11 @@ def prep_D(lg, *args):
     else:
         result = []
         for i in args:
-            if i.size == 1:
+            if not isinstance(i, DenseOneBody): #should be ndarray then
                 result.append(i.squeeze())
-                continue
-            diag_idx = np.diag_indices_from(i)
-            ut_idx = np.triu_indices_from(i)
-            i[diag_idx] *= 0.5
-            result.append(2*i[ut_idx])
+            else:
+                i.iscale_diag(0.5)
+                result.append(2*i.ravel())
     return np.hstack(result)
 
 def generic_HF_calc(basis = 'sto-3g', filename='test/water_equilim.xyz'):
@@ -186,22 +203,13 @@ def generic_HF_calc(basis = 'sto-3g', filename='test/water_equilim.xyz'):
     ham = Hamiltonian(system, [HartreeFock()])
     return system, ham, basis
     
-def generic_DFT_calc(basis = 'sto-3g', filename='test/water_equilim.xyz', lda_term = 'c_vwn'):
+def generic_DFT_calc(basis = 'sto-3g', filename='test/water_equilim.xyz', lda_term = 'x'):
     system = System.from_file(context.get_fn(filename), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     grid = BeckeMolGrid(system, random_rotate=False)
     libxc_term = LibXCLDATerm(lda_term) #vwn_5
     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
     return system, ham, basis
-
-def calc_shapes(*args):
-    shapes = []
-    for i in args:
-        if i.size == 1:
-            shapes.append(i.size)
-            continue
-        shapes.append(i.shape[0])
-    return shapes
 
 def project(orig_sys, proj_sys, *args):
     new_basis = GOBasis.concatenate(orig_sys.obasis, proj_sys.obasis)

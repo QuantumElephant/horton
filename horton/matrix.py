@@ -216,6 +216,10 @@ class DenseLinalgFactory(LinalgFactory):
         result = DenseOneBody(A.shape[0])
         result._array = A
         return result
+    
+    def create_one_body_eye(self, nbasis=None):
+        result = self.create_one_body_from(np.eye(nbasis or self._default_nbasis))
+        return result
 
     def _check_one_body_init_args(self, one_body, nbasis=None):
         nbasis = nbasis or self._default_nbasis
@@ -678,28 +682,6 @@ class DenseOneBody(OneBody):
     def isymmetrize(self):
         self._array = 0.5*(self._array + self._array.T)    
     
-#     def __add__(self, other):
-#         result = DenseOneBody(self.nbasis)
-#         result._array = self._array + other._array
-#         return result
-#     
-#     def __sub__(self, other):
-#         result = DenseOneBody(self.nbasis)
-#         result._array = self._array - other._array
-#         return result
-#     
-#     def __mul__(self, other):
-#         if isinstance(other, DenseOneBody):
-#             result = DenseOneBody(self.nbasis)
-#             result._array = np.dot(self._array, other._array)
-#             return result
-#         else:
-#             assert not isinstance(other, np.ndarray)
-#             result = DenseOneBody(self.nbasis)
-#             result._array = self._array.copy()
-#             result.iscale(other)
-#             return result
-#     
     def assign_from(self, A):
         assert isinstance(A, np.ndarray)
         self._array = A    
@@ -725,7 +707,38 @@ class DenseOneBody(OneBody):
     def iscale_diag(self, factor):
         ind = np.diag_indices_from(self._array)
         self._array[ind] *= factor
+        
+    def invert(self):
+        self._array = np.linalg.inv(self._array)
+        
+    def outer(self, eigvecs, eigvals=None):
+        """
+            **Arguments:**
+            
+            eigvecs
+                An onebody instance of eigenvectors corresponding to non-zero eigenvalues.
+                
+            **Optional Arguments:**
+            
+            eigvals
+                A 1d numpy array of eigenvalues. Zero eigenvalues will be skipped.
+        """
+        
+        if eigvals is None:
+            eigvals = np.ones(self._array.shape[0])
+                
+        for key,i in enumerate(eigvals[eigvals != 0]):
+            if isinstance(eigvecs, DenseExpansion):
+                internal_rep = eigvecs._coeffs
+            else:
+                internal_rep = eigvecs._array
+                
+            self._array += i*np.outer(internal_rep[:,key], internal_rep[:,key])
+            
     
+    def assign_from_blocks(self, *args):
+        arrays = [i._array for i in args]
+        self._array = scp.linalg.block_diag(*arrays)           
     
 class DenseTwoBody(LinalgObject):
     """Dense symmetric four-dimensional matrix.
@@ -869,6 +882,11 @@ class TriangularOneBody(DenseOneBody):
         result = self._array[ind].squeeze()
         return result 
     
+    def copy(self):
+        result = TriangularOneBody(self.nbasis)
+        result._array[:] = self._array
+        return result
+    
     def set_elements_from_vec(self, x):
         assert x.size == self.nbasis*(self.nbasis+1)/2.
         ind = np.triu_indices_from(self._array)
@@ -879,6 +897,7 @@ class TriangularOneBody(DenseOneBody):
         result = DenseOneBody(self.nbasis)
         result.assign_from(self._array)
         return result
+<<<<<<< HEAD
     def _update_dense(self):
         self._dense_array = self._to_numpy()
     def _update_array(self):
@@ -1172,6 +1191,9 @@ class TriangularOneBody(DenseOneBody):
 #     def _update_dense(self):
 #         self._dense_array = self._to_numpy()
 #         
+=======
+
+>>>>>>> Extended error propagation to any part of code. Also rewrote initial
 class BaseDualOneBody(TriangularOneBody):
     """Dense symmetric two-dimensional matrix, also used for density matrices.
 
@@ -1272,20 +1294,19 @@ class BaseDualOneBody(TriangularOneBody):
             temp = self._dual_array*dm._dual_array
             for i in np.arange(temp.rows):
                 result += temp[i,i]
-                
-            print "floating point expectation value: " + str(super(BaseDualOneBody, self).expectation_value(dm))
+#             print "expectation error " + str(super(BaseDualOneBody, self).expectation_value(dm))
         else:
             result = super(BaseDualOneBody, self).expectation_value(dm)
         return result
 
     def trace(self):
+        result = super(BaseDualOneBody, self).trace()
         if self.isDual:
             dual_result = 0
             for i in np.arange(self._dual_array.rows):
                 dual_result += self._dual_array[i,i]
-#             print "floating point expectation value: " + str(super(BaseDualOneBody, self).trace())
+#             print "trace error: " + str(super(BaseDualOneBody, self).trace() - result)
 #                 print "trace error: " + str(dual_result.delta)
-        result = super(BaseDualOneBody, self).trace()
         return result
 
     def itranspose(self):
@@ -1300,11 +1321,12 @@ class BaseDualOneBody(TriangularOneBody):
         super(BaseDualOneBody, self).iscale(factor)
 
     def dot(self, vec0, vec1):
-        if self.isDual:
-            result = vec0*self._dual_array*vec1
-            print "floating point dot: " + str(super(BaseDualOneBody, self).dot(vec0, vec1))
-        else:
-            result = super(BaseDualOneBody, self).dot(vec0, vec1)
+        result = super(BaseDualOneBody, self).dot(vec0, vec1)
+#         if self.isDual:
+#             
+#             
+#             result = vec0*self._dual_array*vec1 #FIXME: Multiply with numpy vectors
+#             print "floating point dot error: " + str(super(BaseDualOneBody, self).dot(vec0, vec1) - result)
         return result
 
     def idot(self, other):
@@ -1313,11 +1335,10 @@ class BaseDualOneBody(TriangularOneBody):
         super(BaseDualOneBody, self).idot(other)
 
     def distance(self, other):
+        result = super(BaseDualOneBody, self).distance(other)
         if self.isDual:
             result = max(self._dual_array - other._dual_array)
-            print "floating point distance: " + str(super(BaseDualOneBody, self).distance(other))
-        else:
-            result = super(BaseDualOneBody, self).distance(other)
+#             print "floating point distance error: " + str(super(BaseDualOneBody, self).distance(other) - result)
         return result
 
 #     def apply_basis_permutation(self, permutation):
@@ -1346,30 +1367,142 @@ class BaseDualOneBody(TriangularOneBody):
         super(BaseDualOneBody, self)._update_array()
         if self.isDual:
             self._dense_to_dual()
+            
+#     def _update_dense(self):
+#         self._dense_array = self._array.copy()
+#         super(BaseDualOneBody, self)._update_dense()
+    
+    def _writeback(self):
+        raise NotImplementedError
+    
+    def _calc_dual_error(self):
+        raise NotImplementedError
+    
+    def ravel(self):
+        self._calc_dual_error()
+        self._writeback()
+        result = super(BaseDualOneBody, self).ravel()
+        return result 
         
     def iscale_diag(self, factor):
         if self.isDual:
-            for i in np.arange(self._array.rows):
+            for i in np.arange(self._dual_array.rows):
                 self._dual_array[i,i] *= factor
         super(BaseDualOneBody, self).iscale_diag(factor)
+        
+    def invert(self):
+#         if pseudo: #not implemented in MPMath
+#             self._dual_array = mp.matrices.linalg.inverse(self._dual_array)
+            
+        super(BaseDualOneBody, self).invert()
+        
+    def outer(self, eigvecs, eigvals=None):
+        """
+            **Arguments:**
+            
+            eigvecs
+                An onebody instance of eigenvectors corresponding to non-zero eigenvalues.
+                
+            **Optional Arguments:**
+            
+            eigvals
+                A 1d array of eigenvalues. Zero eigenvalues will be skipped.
+        """
 
+        super(BaseDualOneBody, self).outer(eigvecs, eigvals)
+        
+        if self.isDual:
+            if isinstance(eigvecs, DenseExpansion):
+                internal_rep = self._convert_to_dual(eigvecs._coeffs)
+            elif isinstance(eigvecs, np.ndarray):
+                internal_rep = self._convert_to_dual(eigvecs._array)
+            else:
+                internal_rep = eigvecs
+                
+            for key,i in enumerate(eigvals[eigvals != 0]):
+                self._dual_array += internal_rep[:,key]*internal_rep[:,key].T*i #no idea why, but scalar must be at the end
+    
+    def _convert_to_dual(self, arg):
+        raise NotImplementedError
+    
+    def assign_from_blocks(self, *args):
+        last_diag = 0
+        for i in args:
+            for j in np.arange(i.rows):
+                for k in np.arange(i.cols):
+                    self._dual_array[j+last_diag,k+last_diag] = i[j,k]
+            last_diag += i.rows #or i.cols
+        
+        super(BaseDualOneBody, self).assign_from_blocks(*args)
+    
 class IVDualOneBody(BaseDualOneBody):
     def _dense_to_dual(self):
         self._dual_array = mp.iv.matrix(self._array)
     
+    def _convert_to_dual(self, arg): #internal helper function. Do not use
+        return mp.iv.matrix(arg)
+    
     def disable_dual(self, writeback=False):
         if self.isDual:
             self.isDual = False
-    #         mids = [i.mid for i in self._dual_array]
-            deltas = [i.delta for i in self._dual_array]
-            if max(deltas) > 1e-20:
-                return max(deltas)
+            self._calc_dual_error()
+    
+    def _writeback(self):
+        return
+    
+    def _calc_dual_error(self):
+#         mids = [i.mid for i in self._dual_array]
+        deltas = [i.delta for i in self._dual_array]
+        return mp.norm(deltas)
     
     def copy(self):
         result = IVDualOneBody(self.nbasis, isDual=self.isDual)
         result.assign(self)
         return result
 
+
+    
+class MPDualOneBody(BaseDualOneBody):
+    def _dense_to_dual(self):
+        self._dual_array = mp.mp.matrix(self._array)
+    
+    def _convert_to_dual(self, arg): #internal helper function. Do not use
+        return mp.mp.matrix(arg)
+    
+    def _writeback(self):
+        for i in np.arange(self._dual_array.rows):
+            for j in np.arange(self._dual_array.cols):
+                self._array[i,j] = float(self._dual_array[i,j]) 
+    
+    def _calc_dual_error(self):
+        deltas = mp.matrix(self._dual_array.rows, self._dual_array.cols)
+        for i in np.arange(self._dual_array.rows):
+            for j in np.arange(self._dual_array.cols):
+                deltas[i,j] = abs(self._array[i,j] - self._dual_array[i,j])
+
+        if mp.norm(deltas) > 1e-5:
+            raise AbnormalOperationException
+        elif mp.norm(deltas) > 1e-10:
+            print "large numerical error present: " + str(deltas.norm())
+            
+        return mp.norm(deltas)
+    
+    def disable_dual(self, writeback=False):
+        if self.isDual:
+            self.isDual = False
+            deltas = self._calc_dual_error()
+
+            if writeback:
+                self._writeback()
+
+            if deltas > 1e-30:
+                return deltas
+
+    def copy(self):
+        result = MPDualOneBody(self.nbasis, isDual=self.isDual)
+        result.assign(self)
+        return result
+    
 class BaseDualLinalgFactory(DenseLinalgFactory):
     def __init__(self, default_nbasis=None, isDual=False):
         self.isDual = isDual
@@ -1389,10 +1522,6 @@ class BaseDualLinalgFactory(DenseLinalgFactory):
     def create_one_body(self, nbasis=None):
         result = self._instantiate_one_body(nbasis)
         self.history.append(result)
-        return result
-        
-    def create_one_body_eye(self, nbasis=None):
-        result = self.create_one_body_from(np.eye(nbasis or self._default_nbasis))
         return result
     
     def create_one_body_from(self,A):
@@ -1418,34 +1547,8 @@ class IVDualLinalgFactory(BaseDualLinalgFactory):
             numError = i.disable_dual(writeback=False)
             
             if numError is not None:
-                    print "On matrix " + hex(id(i)) + " in history, max error: " + str(numError)
+                    print "On matrix " + hex(id(i)) + " in history, norm interval error: " + str(numError)
         self.history = []
-    
-class MPDualOneBody(BaseDualOneBody):
-    def _dense_to_dual(self):
-        self._dual_array = mp.mp.matrix(self._array)
-    
-    def disable_dual(self, writeback=False):
-        if self.isDual:
-            self.isDual = False
-            deltas = mp.matrix(self._dual_array.rows, self._dual_array.cols)
-            for i in np.arange(self._dual_array.rows):
-                for j in np.arange(self._dual_array.cols):
-                    deltas[i,j] = abs(self._array[i,j] - self._dual_array[i,j])
-
-            if writeback:
-                for i in np.arange(self._dual_array.rows):
-                    for j in np.arange(self._dual_array.cols):
-                        self._array[i,j] = float(self._dual_array[i,j]) 
-
-            if max(deltas) > 1e-30:
-                return max(deltas)
-
-    def copy(self):
-        result = MPDualOneBody(self.nbasis, isDual=self.isDual)
-        result.assign(self)
-        return result
-
 class MPDualLinalgFactory(BaseDualLinalgFactory):
     def __init__(self, default_nbasis=None, isDual=False):
         mp.dps = 30
@@ -1462,5 +1565,5 @@ class MPDualLinalgFactory(BaseDualLinalgFactory):
             numError = i.disable_dual(writeback=True)
             
             if numError is not None:
-                    print "On matrix " + hex(id(i)) + " in history, max error: " + str(numError)
+                    print "On matrix " + hex(id(i)) + " in history, norm absolute error: " + str(numError)
         self.history = []
