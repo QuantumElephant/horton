@@ -150,9 +150,9 @@ def setup_wfn(sys, ham, dm_alpha, dm_beta):
                        sys.lf.create_one_body_from(dm_alpha), 
                        sys.lf.create_one_body_from(dm_beta)) #incase we have fractional occ
 
-def default_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False, addNoise=None):
+def default_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False, Exc="x", addNoise=None):
     if method == "DFT":
-        Exc = "x"
+        Exc = Exc
     else:
         Exc = None
     sys, ham, args, opt = setup_system(basis, method, file='test/water_equilim.xyz', 
@@ -170,13 +170,13 @@ def gen_noise(addNoise, *args):
         result.append(i+(addNoise*np.random.rand(*i.shape)))
     return result
     
-    ####TESTING
-    try:
-        sys.lf.disable_dual()
-    except AttributeError:
-        pass
-    #TESTING####
-
+#     ####TESTING
+#     try:
+#         sys.lf.disable_dual()
+#     except AttributeError:
+#         pass
+#     #TESTING####
+    
 def frac_target_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False):
     if method == "DFT":
         Exc = "x"
@@ -208,17 +208,17 @@ def setup_system(basis, method, file, ifCheat = False, isFrac = False,
                      restricted=False, Exc = None, random_rotate=False, 
                      Ntarget_alpha=None, Ntarget_beta=None):
 #     lf = matrix.IVDualLinalgFactory()
-#     lf = matrix.TriangularLinalgFactory()
+    lf = matrix.TriangularLinalgFactory()
 #     lf = matrix.DenseLinalgFactory()
-    lf = matrix.MPDualLinalgFactory()
+#     lf = matrix.MPDualLinalgFactory()
     
     system = System.from_file(context.get_fn(file), obasis=basis, lf=lf)
-    ####TESTING
-    try:
-        system.lf.enable_dual()
-    except AttributeError:
-        pass
-    #TESTING####
+#     ####TESTING
+#     try:
+#         system.lf.enable_dual()
+#     except AttributeError:
+#         pass
+#     #TESTING####
     if Ntarget_alpha is not None and Ntarget_beta is not None:
         
         print "overriding alpha population: " + str(Ntarget_alpha)
@@ -330,8 +330,8 @@ def check_E(ham, targetE):
 # default_h2o_calc('sto-3g', "HF", -74.965901, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('3-21G', "HF", -75.583747447860, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('sto-3g', "DFT", -74.0689451960385, ifCheat=True, isFrac=True) #HORTON
+# default_h2o_calc('cc-pVQZ', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
 default_h2o_calc('6-31++G**', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
-# default_h2o_calc('6-31G', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
 
 # projected_h2o_calc('3-21G', '6-31++G**', "DFT", -67.9894175486548, ifCheat=True, isFrac=True) #Horton
 # frac_target_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
