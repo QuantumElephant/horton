@@ -57,7 +57,7 @@ class MatrixHelpers(object):
         return result
     
     def check_sym(self, *args):
-        def plot_mat(self, mat):
+        def plot_mat(mat):
             pylab.matshow(mat)
             pylab.show()
         
@@ -71,7 +71,7 @@ class MatrixHelpers(object):
             symerror = np.abs(i[:,:shortDim] - i.T[:shortDim,:])
             if not (symerror < 1e-8).all():
                 print "sym:", args
-            assert (symerror < 1e-8).all(), (np.vstack(np.where(symerror > 1e-8)).T, symerror,np.sort(symerror, None)[-20:], self.plot_mat(symerror > 1e-8))
+            assert (symerror < 1e-8).all(), (np.vstack(np.where(symerror > 1e-8)).T, symerror,np.sort(symerror, None)[-20:], plot_mat(symerror > 1e-8))
 
 class FullMatrixHelpers(MatrixHelpers):
     def calc_offsets(self):

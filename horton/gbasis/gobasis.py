@@ -211,6 +211,7 @@ go_basis_families = [
     GOBasisFamily('cc-pVDZ', filename=context.get_fn('basis/cc-pvdz.nwchem')),
     GOBasisFamily('cc-pVTZ', filename=context.get_fn('basis/cc-pvtz.nwchem')),
     GOBasisFamily('cc-pVQZ', filename=context.get_fn('basis/cc-pvqz.nwchem')),
+    GOBasisFamily('cc-pVTZ', filename=context.get_fn('basis/cc-pvtz.nwchem')),
     GOBasisFamily('sto3gTo631++g**', filename=context.get_fn('basis/sto3gTo631++g**.nwchem')),
     GOBasisFamily('sto3gTo321g', filename=context.get_fn('basis/sto3gTo321g.nwchem')),
     GOBasisFamily('sto3gTo631g**', filename=context.get_fn('basis/sto3gTo631g**.nwchem')),

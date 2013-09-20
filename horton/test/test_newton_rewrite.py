@@ -208,9 +208,9 @@ def setup_system(basis, method, file, ifCheat = False, isFrac = False,
                      restricted=False, Exc = None, random_rotate=False, 
                      Ntarget_alpha=None, Ntarget_beta=None):
 #     lf = matrix.IVDualLinalgFactory()
-    lf = matrix.TriangularLinalgFactory()
+#     lf = matrix.TriangularLinalgFactory()
 #     lf = matrix.DenseLinalgFactory()
-#     lf = matrix.MPDualLinalgFactory()
+    lf = matrix.MPDualLinalgFactory()
     
     system = System.from_file(context.get_fn(file), obasis=basis, lf=lf)
 #     ####TESTING
@@ -331,7 +331,7 @@ def check_E(ham, targetE):
 # default_h2o_calc('3-21G', "HF", -75.583747447860, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('sto-3g', "DFT", -74.0689451960385, ifCheat=True, isFrac=True) #HORTON
 # default_h2o_calc('cc-pVQZ', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
-default_h2o_calc('6-31++G**', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
+default_h2o_calc('cc-pvtz', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
 
 # projected_h2o_calc('3-21G', '6-31++G**', "DFT", -67.9894175486548, ifCheat=True, isFrac=True) #Horton
 # frac_target_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM

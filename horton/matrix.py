@@ -1482,9 +1482,12 @@ class MPDualOneBody(BaseDualOneBody):
         return mp.mp.matrix(arg)
     
     def _writeback(self):
-        for i in np.arange(self._dual_array.rows):
-            for j in np.arange(self._dual_array.cols):
-                self._array[i,j] = float(self._dual_array[i,j]) 
+        if self.isDual:
+            for i in np.arange(self._dual_array.rows):
+                for j in np.arange(self._dual_array.cols):
+                    self._array[i,j] = float(self._dual_array[i,j])
+        else:
+            print "Warning: arbitrary precision values not written back!" 
     
     def _calc_dual_error(self):
         if self.isDual:
@@ -1503,11 +1506,10 @@ class MPDualOneBody(BaseDualOneBody):
     def disable_dual(self, writeback=False):
         if self.isDual:
             deltas = self._calc_dual_error()
-            self.isDual = False
-
             if writeback:
                 self._writeback()
-
+            
+            self.isDual = False
             if deltas > 1e-30:
                 return deltas
 
