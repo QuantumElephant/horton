@@ -415,8 +415,9 @@ def check_E(ham, targetE):
 
 # default_h2o_calc('sto-3g', "HF", -74.965901, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('3-21G', "HF", -75.583747447860, ifCheat=True, isFrac=True) #NWCHEM
-default_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
-# default_h2o_calc('3-21G', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
-default_h2o_calc('6-31++G**', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
+# default_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
+default_h2o_calc('3-21G', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
+# default_h2o_calc('6-31G', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
+
 # projected_h2o_calc('3-21G', '6-31++G**', "DFT", -67.9894175486548, ifCheat=True, isFrac=True) #Horton
 # frac_target_h2o_calc('sto-3g', "DFT", -66.634688718437, ifCheat=True, isFrac=True) #NWCHEM
