@@ -190,11 +190,11 @@ class Lagrangian(object):
         
         S = self.sys.get_overlap()
         
-        self.sys.wfn.invalidate()
+        self.sys.wfn.clear()
         if self.alwaysCalcHam:
-            self.ham.invalidate()
+            self.ham.clear()
         else:
-            [self.ham.cache.invalidate(i) for i in ('op_coulomb', 'op_exchange_fock_alpha', 'op_exchange_fock_beta')]
+            [self.ham.cache.clear_item(i) for i in ('op_coulomb', 'op_exchange_fock_alpha', 'op_exchange_fock_beta')]
         self.sys.wfn.update_dm("alpha", da) #TODO: Fix for restricted
         self.sys.wfn.update_dm("beta", db)
         dadb = self.sys.lf.create_one_body()
@@ -202,11 +202,11 @@ class Lagrangian(object):
         self.sys.wfn.update_dm("full", dadb)
     
         for i in [self.fock_alpha, self.fock_beta]:
-            i.reset()
+            i.clear()
         
         self.ham.compute_fock(self.fock_alpha, self.fock_beta)
         
-#        self.sys.wfn.invalidate() #Used for debugging occupations in callback
+#        self.sys.wfn.clear() #Used for debugging occupations in callback
 #        self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), self.matHelper.toOneBody(da), self.matHelper.toOneBody(db)) #Used for callback debugging
         
         alpha_args.append(self.fock_alpha)
@@ -359,14 +359,14 @@ class Lagrangian(object):
         return self.energy(args[0],args[self.nfixed_args/2])
     
     def energy(self, Da, Db):
-        self.sys.wfn.invalidate()
-        self.ham.invalidate()
+        self.sys.wfn.clear()
+        self.ham.clear()
         self.sys.wfn.update_dm("alpha", Da)
         self.sys.wfn.update_dm("beta", Db)
         dadb = self.sys.lf.create_one_body()
         self.sys.wfn.update_dm("full", dadb.imuls(Da,Db))
 #       self.sys.wfn.update_dm("spin", Da-Db)
-        result = self.ham.compute_energy()
+        result = self.ham.compute()
 #       print "The energy is " + str(result)
         
         return result

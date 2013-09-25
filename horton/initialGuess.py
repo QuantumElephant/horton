@@ -1,6 +1,7 @@
 from horton.newton_rewrite import NewtonKrylov
 from horton.gbasis.cext import GOBasis
-from horton import System, guess_hamiltonian_core, Hamiltonian, converge_scf_oda, HartreeFock, Hartree, BeckeMolGrid, LibXCLDATerm, context, HamiltonianTerm, DenseOneBody
+from horton.meanfield import guess_hamiltonian_core, Observable, converge_scf_oda, builtin, LibXCLDA, wfn, Hamiltonian, HartreeFockExchange
+from horton import System, BeckeMolGrid, DenseOneBody
 import numpy as np
 import scipy as scp
 import matplotlib.pyplot as plt
@@ -42,18 +43,25 @@ def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False, charge
         e_alpha = sys.wfn.exp_alpha.energies
         e_beta = sys.wfn.exp_beta.energies
     else:
+        pro_orb_alpha = []
+        pro_orb_beta = []
+        pro_occ_alpha = []
+        pro_occ_beta = []
+        pro_e_alpha = []
+        pro_e_beta = []
+        
         for atomNum,i in enumerate(sys.numbers):
-            atom_sys = System(np.zeros((1,3), float), np.array([i]), obasis=basis, lf = sys.lf) #hacky
+            atom_sys = System(np.zeros((1,3), float), np.array([i]), obasis=basis) #hacky
             
             if isinstance(numChargeMult, np.ndarray) and atomNum in numChargeMult[:,0]:
                 [num, charge, mult] = numChargeMult[np.where(numChargeMult[:,0] == atomNum),:].squeeze()
                 print "REWRITING atom number " + str(num) + " element: " + str(i) + " with charge: " \
                     + str(charge) + " and multiplicity: " + str(mult)
                 
-                atom_sys.init_wfn(charge=charge, mult=mult,restricted=False)
+                wfn.setup_mean_field_wfn(atom_sys, charge=charge_target, mult=mult, restricted=False)
             else:
                 print "Calculating atomic density for element " + str(i)
-                atom_sys.init_wfn(restricted=False)     
+                wfn.setup_mean_field_wfn(atom_sys, restricted=False)     
     
             nbasis.append(atom_sys.wfn.nbasis)
             guess_hamiltonian_core(atom_sys)
@@ -62,10 +70,9 @@ def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False, charge
                 grid = BeckeMolGrid(atom_sys, random_rotate=False) #using grid
             else:
                 grid = None
-            atom_ham = Hamiltonian(atom_sys, ham.terms, grid)
+            atom_ham = Hamiltonian(atom_sys, [HartreeFockExchange()])
     
-            converge_scf_oda(atom_ham, max_iter=5000)
-            reset_ham(sys, ham)
+            converge_scf_oda(atom_ham, maxiter=5000)
             
             pro_orb_alpha.append(atom_sys.wfn.exp_alpha)
             pro_orb_beta.append(atom_sys.wfn.exp_beta)
@@ -150,7 +157,7 @@ def promol_dm_b(sys, orb, occ, energy, mu):
     
 def calc_DM(sys, ham, charge_target, mult_target): #TODO: remove charge + mult
     guess_hamiltonian_core(sys)
-    converged = converge_scf_oda(ham, max_iter=5000)
+    converged = converge_scf_oda(ham, maxiter=5000)
      
     fock_alpha = sys.lf.create_one_body(sys.wfn.nbasis)
     fock_beta = sys.lf.create_one_body(sys.wfn.nbasis)
@@ -160,7 +167,7 @@ def calc_DM(sys, ham, charge_target, mult_target): #TODO: remove charge + mult
 
 def reset_ham(sys,ham):
     for i in ham.terms:
-        if isinstance(i, HamiltonianTerm):
+        if isinstance(i, Observable):
             i.prepare_system(sys, ham.cache, ham.grid)
 
 def promol_frac(dm, sys):
@@ -207,7 +214,7 @@ def generic_DFT_calc(basis = 'sto-3g', filename='test/water_equilim.xyz', lda_te
     system = System.from_file(context.get_fn(filename), obasis=basis)
     system.init_wfn(charge=0, mult=1, restricted=False)
     grid = BeckeMolGrid(system, random_rotate=False)
-    libxc_term = LibXCLDATerm(lda_term) #vwn_5
+    libxc_term = LibXCLDA(lda_term) #x
     ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
     return system, ham, basis
 
