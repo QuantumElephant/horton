@@ -28,7 +28,7 @@ class Constraint(object):
         self.L = L #a list or a single element
         self.select = select
         self.C = C
-        print "New constraint initialized with C:" + str(C)
+        log("New constraint initialized with C:" + str(C))
 
     def lagrange(self,D, Mul):
         raise NotImplementedError

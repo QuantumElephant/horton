@@ -174,10 +174,10 @@ def promol_frac(dm, sys):
     s = sys.get_overlap() #TODO: abstract out inverse operation in matrix
     
     p = sys.lf.create_one_body_eye()
-    p.imuls(dm,s)
+    p.imuls(s,dm,s)
     
     dsds = sys.lf.create_one_body_eye()
-    dsds.imuls(dm, s, dm, s)
+    dsds.imuls(s,dm, s, dm, s)
     
     p.isubs(dsds)
     

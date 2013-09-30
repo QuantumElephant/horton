@@ -34,7 +34,7 @@ class NewtonKrylov(object):
         x_star= op.newton_krylov(lg.grad_wrap, x0, verbose=True, method='lgmres', f_tol = 1e-7, callback = lg.callback_system)
 #         x_star= op.newton_krylov(lg.grad_wrap, x0, verbose=True, method='lgmres', rdiff = 1e-10, f_tol = 1e-6, callback = lg.callback_system)
         
-#        x_star= op.broyden2(lg.grad_wrap, x0, verbose=True, f_tol = 1e-8, callback = lg.callback_system)
+#         x_star= op.broyden2(lg.grad_wrap, x0, verbose=True, f_tol = 1e-5, callback = lg.callback_system)
 
         return x_star
     

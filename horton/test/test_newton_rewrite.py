@@ -222,8 +222,8 @@ def setup_system(basis, method, file, ifCheat = False, isFrac = False,
 #     #TESTING####
     if Ntarget_alpha is not None and Ntarget_beta is not None:
         
-        print "overriding alpha population: " + str(Ntarget_alpha)
-        print 'overriding beta population: ' + str(Ntarget_beta)
+        log("overriding alpha population: " + str(Ntarget_alpha))
+        log('overriding beta population: ' + str(Ntarget_beta))
         
         N = Ntarget_alpha
         N2 = Ntarget_beta
@@ -242,7 +242,7 @@ def setup_system(basis, method, file, ifCheat = False, isFrac = False,
     elif method == "DFT":
         assert Exc is not None
         if not random_rotate:
-            print "Random grid rotation disabled."
+            log("Random grid rotation disabled.")
         grid = BeckeMolGrid(system, random_rotate=random_rotate)
         libxc_term = LibXCLDA(Exc)
         ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
@@ -286,6 +286,8 @@ def setup_lg(sys, ham, cons, args, basis, method, Exc=None, isFrac=False):
 
     lg = Lagrangian(sys, ham, cons, isFrac=isFrac)
 
+    np.savez("ini_args.npz", *[i._array for i in args[:-2]])
+
     x0 = initialGuess.prep_D(lg, *args)
 
     msg = "Start " + method +" "
@@ -296,9 +298,11 @@ def setup_lg(sys, ham, cons, args, basis, method, Exc=None, isFrac=False):
         msg += "Fractional "
     else:
         msg += "Integer "
-    print msg
+    log(msg)
         
     x_star = solver.solve(lg, x0)
+    
+    np.savez("fin_args.npz", *[i._array for i in lg.matHelper.vecToMat(x_star)[:-2]])
     
     return x_star
     
@@ -311,8 +315,11 @@ def setup_cons(sys, args, N, N2):
     return [norm_a, norm_b]
 
 def check_E(ham, targetE):
-    print "Actual E:" + str(targetE) #NWCHEM
-    print "Computed E:" + str(ham.compute())
+    log()
+    ham.log_energy()
+    log()
+    log("Actual E:" + str(targetE)) #NWCHEM
+    log("Computed E:" + str(ham.compute()))
     assert np.abs(ham.compute() - targetE) < 1e-4
 
 # test_check_grad()
@@ -329,9 +336,9 @@ def check_E(ham, targetE):
 # default_h2o_calc('3-21G', "DFT", -67.521923845983, ifCheat=True) #NWCHEM
 
 # default_h2o_calc('sto-3g', "HF", -74.965901, ifCheat=True, isFrac=True) #NWCHEM
-default_h2o_calc('3-21G', "HF", -75.583747447860, ifCheat=True, isFrac=True) #NWCHEM
+# default_h2o_calc('3-21G', "HF", -75.583747447860, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('sto-3g', "DFT", -74.0689451960385, ifCheat=True, isFrac=True) #HORTON
-# default_h2o_calc('3-21g', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
+default_h2o_calc('6-31++g**', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('cc-pvqz', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
 
 # projected_h2o_calc('3-21G', '6-31++G**', "DFT", -67.9894175486548, ifCheat=True, isFrac=True) #Horton

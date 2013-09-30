@@ -4,6 +4,7 @@ import mpmath as mp
 from horton.MatrixHelpers import *
 import time
 from horton import matrix
+from horton import log
 
 #TODO: profile to figure out a quick way of evaluating this function.
 class Lagrangian(object):
@@ -45,11 +46,11 @@ class Lagrangian(object):
         
         nbasis = sys.wfn.nbasis
         if isFrac:
-            print "Fractional occupations enabled"
+            log("Fractional occupations enabled")
             base_args = [nbasis]*6
             self.nfixed_args = 6
         else:
-            print "Fractional occupations disabled"
+            log("Fractional occupations disabled")
             base_args = [nbasis]*4
             self.nfixed_args = 4
         
@@ -129,7 +130,7 @@ class Lagrangian(object):
             tmpFwd[i] += h                
             tmpBack[i] -= h
             
-            print "evaluating gradient: " + str(i)
+            log("evaluating gradient: " + str(i))
             
 #            fdan_norm = op.check_grad(self.lagrange_wrap, self.grad_wrap, tmpFwd)
 #            assert fdan_norm < 1e-4, fdan_norm
@@ -367,7 +368,6 @@ class Lagrangian(object):
         self.sys.wfn.update_dm("full", dadb.imuls(Da,Db))
 #       self.sys.wfn.update_dm("spin", Da-Db)
         result = self.ham.compute()
-#       print "The energy is " + str(result)
         
         return result
     
@@ -386,24 +386,24 @@ class Lagrangian(object):
             if self.ifHess:
                 hess = self.fdiff_hess_grad_x(x)
                 np.savetxt("jacobian"+str(self.nIter), hess)
-                print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
+                log("The condition number is {:0.3e}".format(np.linalg.cond(hess)))
             
             self.logNextIter=False
             self.t2 = time.time()
-            print "Iter {:d} took {:0.3e} s".format(self.nIter, self.t2-self.t1)
+            log("Iter {:d} took {:0.3e} s".format(self.nIter, self.t2-self.t1))
 
         if self.nIter==0 or self.nIter%1500==0 : #THIS GOES FIRST
             if self.ifHess:
                 hess = self.fdiff_hess_grad_x(x)
                 np.savetxt("jacobian"+str(self.nIter), hess)
-                print "The condition number is {:0.3e}".format(np.linalg.cond(hess))
+                log("The condition number is {:0.3e}".format(np.linalg.cond(hess)))
 
             self.logNextIter = True
             self.t1 = time.time()
         
         self.e_hist.append(self.energy_wrap(x))
             
-        print "Energy is " + str(self.e_hist[-1])
+#         print "Energy is " + str(self.e_hist[-1])
 
         if np.linalg.norm(fx) < 1e-2:
             self.alwaysCalcHam = True
