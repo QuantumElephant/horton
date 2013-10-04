@@ -12,8 +12,8 @@ def setup_system(basis, method, file, ifCheat = False, isFrac = False,
                      restricted=False, Exc = None, random_rotate=False, 
                      Ntarget_alpha=None, Ntarget_beta=None):
 #     lf = matrix.IVDualLinalgFactory()
-    lf = matrix.TriangularLinalgFactory()
-#     lf = matrix.DenseLinalgFactory()
+#     lf = matrix.TriangularLinalgFactory()
+    lf = matrix.DenseLinalgFactory()
 #     lf = matrix.MPDualLinalgFactory()
     
     system = System.from_file(context.get_fn(file), obasis=basis, lf=lf)
@@ -88,7 +88,7 @@ def setup_lg(sys, ham, cons, args, basis, method, Exc=None, isFrac=False):
 
     lg = Lagrangian(sys, ham, cons, isFrac=isFrac)
 
-    x0 = prep_D(lg, *args)
+    x0 = lg.matHelper.initialize(*args)
 
     msg = "Start " + method +" "
     if Exc is not None:
@@ -280,20 +280,6 @@ def promol_frac(dm, sys):
 #     assert np.linalg.norm(p_old - p._array) < 1e-10
 
     return p
-    
-    
-def prep_D(lg, *args):
-    if not lg.isTriu:
-        result = [i.ravel() for i in args]
-    else:
-        result = []
-        for i in args:
-            if not isinstance(i, DenseOneBody): #should be ndarray then
-                result.append(i.squeeze())
-            else:
-                i.iscale_diag(0.5)
-                result.append(2*i.ravel())
-    return np.hstack(result)
 
 def generic_HF_calc(basis = 'sto-3g', filename='test/water_equilim.xyz'):
     system = System.from_file(context.get_fn(filename), obasis=basis)

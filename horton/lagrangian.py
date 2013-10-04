@@ -41,7 +41,6 @@ class Lagrangian(object):
         self.ifHess = ifHess
         self.isFrac = isFrac
         self.isRestricted = isRestricted
-        self.isTriu = isTriu
         
         assert not any(isinstance(el, list) for el in constraints)
         
@@ -61,7 +60,7 @@ class Lagrangian(object):
         
         if matHelper is None:
             shapes = base_args + cons_args
-            if isTriu:
+            if isinstance(sys.lf, matrix.TriangularLinalgFactory):
                 self.matHelper = TriuMatrixHelpers(sys, shapes)
             else:
                 self.matHelper = FullMatrixHelpers(sys, shapes)

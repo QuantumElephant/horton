@@ -8,7 +8,9 @@ class MatrixHelpers(object):
         self.sys = sys
         self.shapes = shapes
         self.offsets = self.calc_offsets()
-        
+    
+    def initialize(self, *args):    
+        raise NotImplementedError
     def matToVec(self, *args):
         raise NotImplementedError
     def vecToMat(self, *args):
@@ -79,6 +81,9 @@ class FullMatrixHelpers(MatrixHelpers):
         result = np.cumsum(result)
         return result
     
+    def initialize(self, *args):
+        return self.matToVec(*args)
+    
     def matToVec(self, *args):
         result = [i.ravel() for i in args]    
         x = np.hstack(result)
@@ -87,13 +92,12 @@ class FullMatrixHelpers(MatrixHelpers):
     def vecToMat(self,x):
         args = []
         for i in np.arange(len(self.offsets)-1):
-#             temp = x[self.offsets[i]:self.offsets[i+1]].reshape([self.shapes[i], self.shapes[i]])
-            temp = x[self.offsets[i]:self.offsets[i+1]]
-            if temp.size > 1: #not a singleton
-#                 temp = self.new_one_body_from(temp)
+            if self.shapes[i] == 1: #try to remove me
+                args.append(x[self.offsets[i]:self.offsets[i+1]])
+            else:
                 temp_mat = self.new_one_body()
-                temp_mat.set_elements_from_vec(temp)
-            args.append(temp_mat)
+                temp_mat.set_elements_from_vec(x[self.offsets[i]:self.offsets[i+1]])
+                args.append(temp_mat)
         return args
 
 class TriuMatrixHelpers(MatrixHelpers):
@@ -101,7 +105,17 @@ class TriuMatrixHelpers(MatrixHelpers):
         result = [0] + [int((n + 1)*n/2.) for n in self.shapes]
         result = np.cumsum(result)
         return result
-        
+    
+    def initialize(self, *args):
+        result = []
+        for i in args:
+            if not isinstance(i, DenseOneBody): #should be ndarray then
+                result.append(i.squeeze())
+            else:
+                i.iscale_diag(0.5)
+                result.append(2*i.ravel())
+        return np.hstack(result)
+    
     def matToVec(self, *args):
         """ Takes an array of dense matrices and returns a vector of the upper triangular portions.
             Does not check for symmetry first.
