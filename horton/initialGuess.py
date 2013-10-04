@@ -1,13 +1,123 @@
-from horton.newton_rewrite import NewtonKrylov
 from horton.gbasis.cext import GOBasis
-from horton.meanfield import guess_hamiltonian_core, Observable, converge_scf_oda, builtin, LibXCLDA, wfn, Hamiltonian, HartreeFockExchange
-from horton import System, BeckeMolGrid, DenseOneBody
+from horton.meanfield import guess_hamiltonian_core, Observable, converge_scf_oda, builtin, LibXCLDA, wfn, Hamiltonian, HartreeFockExchange, Hartree, UnrestrictedWFN
+from horton import System, BeckeMolGrid, DenseOneBody, matrix, context, log, LinearConstraint, Lagrangian
 import numpy as np
 import scipy as scp
 import matplotlib.pyplot as plt
 import copy as cp
 
 np.set_printoptions(threshold = 2000)
+
+def setup_system(basis, method, file, ifCheat = False, isFrac = False, 
+                     restricted=False, Exc = None, random_rotate=False, 
+                     Ntarget_alpha=None, Ntarget_beta=None):
+#     lf = matrix.IVDualLinalgFactory()
+    lf = matrix.TriangularLinalgFactory()
+#     lf = matrix.DenseLinalgFactory()
+#     lf = matrix.MPDualLinalgFactory()
+    
+    system = System.from_file(context.get_fn(file), obasis=basis, lf=lf)
+#     ####TESTING
+#     try:
+#         system.lf.enable_dual()
+#     except AttributeError:
+#         pass
+#     #TESTING####
+    if Ntarget_alpha is not None and Ntarget_beta is not None:
+        if log.do_medium:
+            log("overriding alpha population: " + str(Ntarget_alpha))
+            log('overriding beta population: ' + str(Ntarget_beta))
+        
+        N = Ntarget_alpha
+        N2 = Ntarget_beta
+        
+        Ntarget=Ntarget_alpha + Ntarget_beta
+        charge_target = system.numbers.sum() - Ntarget
+    elif Ntarget_alpha is not None or Ntarget_beta is not None:
+        assert False, "must define both alpha and beta target occupations."
+    else:
+        charge_target = 0
+    
+    wfn.setup_mean_field_wfn(system, charge=charge_target, restricted=restricted)
+    if method == "HF":
+        ham = Hamiltonian(system, [HartreeFockExchange()])
+        assert Exc is None
+    elif method == "DFT":
+        assert Exc is not None
+        if not random_rotate:
+            log("Random grid rotation disabled.")
+        grid = BeckeMolGrid(system, random_rotate=random_rotate)
+        libxc_term = LibXCLDA(Exc)
+        ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
+    else:
+        assert False, "not a valid level of theory"
+    promol_orbitals(system, ham, basis, ifCheat=ifCheat, charge_target=charge_target)
+    args, N, N2 = setup_guess(system, ifCheat=True, isFrac=isFrac)
+    
+    if Ntarget_alpha is not None and Ntarget_beta is not None:
+        assert np.abs(N-Ntarget_alpha) < 1e-13, (Ntarget_alpha, N)
+        assert np.abs(N2-Ntarget_beta) < 1e-13, (Ntarget_beta, N2)
+
+    return system, ham, args, locals()
+
+def setup_guess(system, ifCheat=False, isFrac=False):
+    args, N, N2 = promol_guess(system)
+
+    if ifCheat:
+        pro_da = system.wfn.dm_alpha
+        if isinstance(system.wfn, UnrestrictedWFN):
+            pro_db = system.wfn.dm_beta
+        else:
+            pro_db = system.wfn.dm_alpha.copy()
+        
+    if isFrac:
+        pa = promol_frac(pro_da, system)
+        pb = promol_frac(pro_db, system)
+
+        args.insert(2,pa)
+        args.insert(5,pb)
+        
+    return args, N, N2
+    
+def setup_lg(sys, ham, cons, args, basis, method, Exc=None, isFrac=False):
+    sys.wfn.clear() #Safety check. Make sure we aren't computing with cheat values.
+    ham.clear()
+    
+    if isFrac:
+        assert len(args) > 6
+
+    lg = Lagrangian(sys, ham, cons, isFrac=isFrac)
+
+    x0 = prep_D(lg, *args)
+
+    msg = "Start " + method +" "
+    if Exc is not None:
+        msg += Exc + " "
+    msg += basis + " "
+    if isFrac:
+        msg += "Fractional "
+    else:
+        msg += "Integer "
+    if log.do_medium:
+        log(msg)
+    return lg, x0
+    
+def setup_cons(sys, args, N, N2):
+    L = sys.lf.create_one_body_from(np.eye(sys.wfn.nbasis))
+
+    norm_a = LinearConstraint(sys, N, L, select="alpha")
+    norm_b = LinearConstraint(sys, N2, L, select="beta")
+
+    return [norm_a, norm_b]
+
+def check_E(ham, targetE):
+    if log.do_medium:
+        log()
+        ham.log_energy()
+        log()
+        log("Actual E:" + str(targetE)) #NWCHEM
+        log("Computed E:" + str(ham.compute()))
+    assert np.abs(ham.compute() - targetE) < 1e-4
 
 def sqrtm(A):
     result = np.zeros_like(A)
@@ -19,37 +129,19 @@ def sqrtm(A):
     return result
 
 def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False, charge_target=0, mult_target=None):
-    orb_alpha = []
-    orb_beta = []
-    occ_alpha = []
-    occ_beta = []
-    e_alpha = []
-    e_beta = []
-    nbasis = []
-        
     if ifCheat:
         print "CHEAT MODE ENABLED"
-        fock_alpha, fock_beta = calc_DM(sys, ham, charge_target, mult_target)
+        calc_DM(sys, ham, charge_target, mult_target)
         
-        dm_a = sys.wfn.dm_alpha.copy()
-        dm_b = sys.wfn.dm_beta.copy()
-        
-        orb_alpha = sys.wfn.exp_alpha
-        orb_beta = sys.wfn.exp_beta
-        
-        occ_alpha = sys.wfn.exp_alpha.occupations
-        occ_beta = sys.wfn.exp_beta.occupations
-        
-        e_alpha = sys.wfn.exp_alpha.energies
-        e_beta = sys.wfn.exp_beta.energies
     else:
         pro_orb_alpha = []
-        pro_orb_beta = []
         pro_occ_alpha = []
-        pro_occ_beta = []
         pro_e_alpha = []
-        pro_e_beta = []
-        
+        if isinstance(sys.wfn, UnrestrictedWFN):
+            pro_orb_beta = []
+            pro_occ_beta = []
+            pro_e_beta = []
+            
         for atomNum,i in enumerate(sys.numbers):
             atom_sys = System(np.zeros((1,3), float), np.array([i]), obasis=basis) #hacky
             
@@ -70,7 +162,7 @@ def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False, charge
                 grid = BeckeMolGrid(atom_sys, random_rotate=False) #using grid
             else:
                 grid = None
-            atom_ham = Hamiltonian(atom_sys, [HartreeFockExchange()])
+            atom_ham = Hamiltonian(atom_sys, [HartreeFockExchange()]) #TODO: generalize for DFT or HF
     
             converge_scf_oda(atom_ham, maxiter=5000)
             
@@ -89,50 +181,49 @@ def promol_orbitals(sys, ham, basis, numChargeMult=None, ifCheat = False, charge
         orb_alpha.assign_from_blocks(*pro_orb_alpha)
         orb_beta.assign_from_blocks(*pro_orb_beta)
         
-        occ_alpha = np.hstack(pro_occ_alpha)
-        occ_beta = np.hstack(pro_occ_beta)
-    
-        e_alpha = np.hstack(pro_e_alpha)
-        e_beta = np.hstack(pro_e_beta)
-    
-        dm_a = None
-        dm_b = None
+        sys.wfn.exp_alpha._coeffs = orb_alpha._to_numpy()
+        sys.wfn.exp_beta._coeffs = orb_beta._to_numpy()
         
-        fock_alpha = None
-        fock_beta = None
+        sys.wfn.exp_alpha.occupations = np.hstack(pro_occ_alpha)
+        sys.wfn.exp_beta.occupations = np.hstack(pro_occ_beta)
     
-    return dm_a, dm_b, fock_alpha, fock_beta, (orb_alpha, occ_alpha, e_alpha, orb_beta, occ_beta, e_beta)
+        sys.wfn.exp_alpha.energies = np.hstack(pro_e_alpha)
+        sys.wfn.exp_beta.energies = np.hstack(pro_e_beta)
     
-def promol_guess(sys, orb_a, occ_a, energy_a, orb_b, occ_b, energy_b, ifFracTarget=False):
-    assert occ_a.size == orb_a.nbasis and occ_b.size == orb_b.nbasis, "initial occupation size: " + str(occ_a.size) + "," + str(occ_b.size) + " basis size: " + str(orb_a.shape[0]) + "," + str(orb_b.shape[0])
+def promol_guess(sys, ifFracTarget=False):
+
+    if isinstance(sys.wfn, UnrestrictedWFN):
+        beta_exp = sys.wfn.exp_beta
+    else:
+        beta_exp = sys.wfn.exp_alpha 
     
     if ifFracTarget:
-        mu_a = frac_promol_mu(energy_a, occ_a)
-        mu_b = frac_promol_mu(energy_b, occ_b)
+        mu_a = frac_promol_mu(sys.wfn.exp_alpha)
+        mu_b = frac_promol_mu(beta_exp)
     else:
-        mu_a = int_promol_mu(energy_a, occ_a)
-        mu_b = int_promol_mu(energy_b, occ_b)
+        mu_a = int_promol_mu(sys.wfn.exp_alpha)
+        mu_b = int_promol_mu(beta_exp)
 
-    N = np.sum(occ_a)
-    N2 = np.sum(occ_b)
+    N = np.sum(sys.wfn.exp_alpha.occupations)
+    N2 = np.sum(beta_exp.occupations)
     
-    pro_da, pro_ba = promol_dm_b(sys, orb_a, occ_a, energy_a, mu_a)
-    pro_db, pro_bb = promol_dm_b(sys, orb_b, occ_b, energy_b, mu_b)
+    pro_da, pro_ba = promol_dm_b(sys, sys.wfn.exp_alpha, mu_a)
+    pro_db, pro_bb = promol_dm_b(sys, beta_exp, mu_b)
 
-    return pro_da, pro_ba, pro_db, pro_bb, mu_a, mu_b, N, N2
+    return [pro_da, pro_ba, pro_db, pro_bb, mu_a, mu_b], N, N2
 
-def frac_promol_mu(energy, occ):
+def frac_promol_mu(exp):
     raise NotImplementedError
 
-def int_promol_mu(energy, occ):
-    if energy[occ > 0.95].any():
-        homo = np.array(np.max(energy[occ > 0.95]))
+def int_promol_mu(exp):
+    if exp.energies[exp.occupations > 0.95].any():
+        homo = np.array(np.max(exp.energies[exp.occupations > 0.95]))
     else:
         print "WARNING: No occupied orbitals"
         homo = np.zeros(1)
     
-    if energy[occ < 0.05].any():
-        lumo = np.array(np.min(energy[occ < 0.05]))
+    if exp.energies[exp.occupations < 0.05].any():
+        lumo = np.array(np.min(exp.energies[exp.occupations < 0.05]))
     else:
         print "WARNING: No unoccupied orbitals"
         lumo = np.zeros(1)
@@ -140,19 +231,19 @@ def int_promol_mu(energy, occ):
     
     return mu
     
-def promol_dm_b(sys, orb, occ, energy, mu):
+def promol_dm_b(sys, exp, mu):
     promol_dm = sys.lf.create_one_body()
     promol_b = sys.lf.create_one_body()
     
-    promol_dm.outer(orb, occ)
+    promol_dm.outer(exp, exp.occupations)
     
     coeff = []
-    for eval, eng in zip(occ, energy):
+    for eval, eng in zip(exp.occupations, exp.energies):
         if eval>0.95 or eval < 0.05:
             coeff.append((eng-mu)/(1-2*eval))
         #else: noop
     coeff = np.hstack(coeff)
-    promol_b.outer(orb, coeff)
+    promol_b.outer(exp, coeff)
     return promol_dm, promol_b
     
 def calc_DM(sys, ham, charge_target, mult_target): #TODO: remove charge + mult

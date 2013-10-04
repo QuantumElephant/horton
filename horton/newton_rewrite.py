@@ -22,28 +22,14 @@
 import scipy.optimize as op
 import numpy as np
 
-class NewtonKrylov(object):
-    def __init__(self):
-        return
-    
-    def solve(self, lg, x0):
+def solve(lg, x0):
 #        jac = op.nonlin.BroydenFirst()
 #        op.nonlin.KrylovJacobian
 #        x_star= op.newton_krylov(lg.grad_wrap, x0, verbose=True, method='bicgstab', f_tol = 1e-8, callback = lg.callback_system)
 #        x_star= op.newton_krylov(lg.grad_wrap, x0, verbose=True, method='lgmres', f_tol = 1e-8, callback = lg.callback_system, inner_M=jac)
-        x_star= op.newton_krylov(lg.grad_wrap, x0, verbose=True, method='lgmres', f_tol = 1e-7, callback = lg.callback_system)
+    x_star = op.newton_krylov(lg.grad_wrap, x0, verbose=True, method='lgmres', f_tol = 1e-7, callback = lg.callback_system)
 #         x_star= op.newton_krylov(lg.grad_wrap, x0, verbose=True, method='lgmres', rdiff = 1e-10, f_tol = 1e-6, callback = lg.callback_system)
-        
-#         x_star= op.broyden2(lg.grad_wrap, x0, verbose=True, f_tol = 1e-5, callback = lg.callback_system)
-
-        return x_star
     
-    def fancy_solve(self, lg, x0):
-        hasNext = True
-        while hasNext:
-            print ("running next guess", x0)
-            x0 = self.solve(lg, x0)
-            lg.callback_system(x0, None)
-            hasNext = lg.nextStep()
-        return x0
-            
+#         x_star= op.broyden2(lg.grad_wrap, x0, verbose=True, f_tol = 1e-5, callback = lg.callback_system)
+    return x_star, lg.nIter
+    

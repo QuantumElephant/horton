@@ -22,13 +22,18 @@
 from horton import *
 import numpy as np
 
+__all__ = [
+       'Constraint', 'LinearConstraint' #rewrite quadraticConstraint before adding
+]
+
 class Constraint(object):
     def __init__(self, sys, C, L, select):
         self.sys = sys
         self.L = L #a list or a single element
         self.select = select
         self.C = C
-        log("New constraint initialized with C:" + str(C))
+        if log.do_medium:
+            log("New constraint initialized with C:" + str(C))
 
     def lagrange(self,D, Mul):
         raise NotImplementedError

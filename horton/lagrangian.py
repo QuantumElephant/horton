@@ -5,6 +5,7 @@ from horton.MatrixHelpers import *
 import time
 from horton import matrix
 from horton import log
+from horton.meanfield import UnrestrictedWFN
 
 #TODO: profile to figure out a quick way of evaluating this function.
 class Lagrangian(object):
@@ -46,11 +47,13 @@ class Lagrangian(object):
         
         nbasis = sys.wfn.nbasis
         if isFrac:
-            log("Fractional occupations enabled")
+            if log.do_medium:
+                log("Fractional occupations enabled")
             base_args = [nbasis]*6
             self.nfixed_args = 6
         else:
-            log("Fractional occupations disabled")
+            if log.do_medium:
+                log("Fractional occupations disabled")
             base_args = [nbasis]*4
             self.nfixed_args = 4
         
@@ -130,7 +133,8 @@ class Lagrangian(object):
             tmpFwd[i] += h                
             tmpBack[i] -= h
             
-            log("evaluating gradient: " + str(i))
+            if log.do_medium:
+                log("evaluating gradient: " + str(i))
             
 #            fdan_norm = op.check_grad(self.lagrange_wrap, self.grad_wrap, tmpFwd)
 #            assert fdan_norm < 1e-4, fdan_norm
@@ -205,7 +209,11 @@ class Lagrangian(object):
         for i in [self.fock_alpha, self.fock_beta]:
             i.clear()
         
-        self.ham.compute_fock(self.fock_alpha, self.fock_beta)
+        if isinstance(self.sys.wfn, UnrestrictedWFN):
+            self.ham.compute_fock(self.fock_alpha, self.fock_beta)
+        else:
+            self.ham.compute_fock(self.fock_alpha)
+            self.fock_beta.assign(self.fock_alpha)
         
 #        self.sys.wfn.clear() #Used for debugging occupations in callback
 #        self.sys.wfn.update_exp(self.fock_alpha, self.fock_beta, self.sys.get_overlap(), self.matHelper.toOneBody(da), self.matHelper.toOneBody(db)) #Used for callback debugging
@@ -386,17 +394,20 @@ class Lagrangian(object):
             if self.ifHess:
                 hess = self.fdiff_hess_grad_x(x)
                 np.savetxt("jacobian"+str(self.nIter), hess)
-                log("The condition number is {:0.3e}".format(np.linalg.cond(hess)))
+                if log.do_medium:
+                    log("The condition number is {:0.3e}".format(np.linalg.cond(hess)))
             
             self.logNextIter=False
             self.t2 = time.time()
-            log("Iter {:d} took {:0.3e} s".format(self.nIter, self.t2-self.t1))
+            if log.do_medium:
+                log("Iter {:d} took {:0.3e} s".format(self.nIter, self.t2-self.t1))
 
         if self.nIter==0 or self.nIter%1500==0 : #THIS GOES FIRST
             if self.ifHess:
                 hess = self.fdiff_hess_grad_x(x)
                 np.savetxt("jacobian"+str(self.nIter), hess)
-                log("The condition number is {:0.3e}".format(np.linalg.cond(hess)))
+                if log.do_medium:
+                    log("The condition number is {:0.3e}".format(np.linalg.cond(hess)))
 
             self.logNextIter = True
             self.t1 = time.time()

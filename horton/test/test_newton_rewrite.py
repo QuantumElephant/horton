@@ -111,9 +111,9 @@ def projected_h2o_calc(origBasis, projBasis, method, targetE, ifCheat=False, isF
         Exc = "x"
     else:
         Exc = None
-    origSys, origHam, origArgs, origOpt = setup_system(origBasis, method, file='test/water_equilim.xyz',
+    origSys, origHam, origArgs, origOpt = initialGuess.setup_system(origBasis, method, file='test/water_equilim.xyz',
                                                        Exc=Exc, ifCheat=True, isFrac=isFrac)
-    projSys, projHam, cheatArgs, projOpt = setup_system(projBasis, method, file='test/water_equilim.xyz',
+    projSys, projHam, cheatArgs, projOpt = initialGuess.setup_system(projBasis, method, file='test/water_equilim.xyz',
                                                         Exc=Exc, ifCheat=True, isFrac=isFrac)
     projArgs = initialGuess.project(origSys, projSys, *origArgs)
     
@@ -128,16 +128,17 @@ def projected_h2o_calc(origBasis, projBasis, method, targetE, ifCheat=False, isF
 
     setup_wfn(projSys, projHam, projD_alpha, projD_beta)
     
-    projArgs, N, N2 = setup_guess(projSys, (projSys.wfn.exp_alpha._coeffs, projSys.wfn.exp_alpha.occupations,
+    projArgs, N, N2 = initialGuess.setup_guess(projSys, (projSys.wfn.exp_alpha._coeffs, projSys.wfn.exp_alpha.occupations,
                                             projSys.wfn.exp_alpha.energies, projSys.wfn.exp_beta._coeffs, 
                                             projSys.wfn.exp_beta.occupations, projSys.wfn.exp_beta.energies),
                                   isFrac=isFrac)
     
     print [np.linalg.norm(i-j) for i,j in zip(cheatArgs, projArgs)]
     
-    cons = setup_cons(projSys, projArgs, N, N2)
-    x_star = setup_lg(projSys, projHam, cons, projArgs, projBasis, method, isFrac=isFrac)
-    check_E(projHam, targetE)
+    cons = initialGuess.setup_cons(projSys, projArgs, N, N2)
+    lg,x0 = initialGuess.setup_lg(projSys, projHam, cons, projArgs, projBasis, method, isFrac=isFrac)
+    x_star, nIter = solver.solve(lg, x0)
+    initialGuess.check_E(projHam, targetE)
 
 def setup_wfn(sys, ham, dm_alpha, dm_beta):    
     sys.wfn.update_dm("alpha", sys.lf.create_one_body_from(dm_alpha))
@@ -156,14 +157,16 @@ def default_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False, Exc="x
         Exc = Exc
     else:
         Exc = None
-    sys, ham, args, opt = setup_system(basis, method, file='test/water_equilim.xyz', 
+    sys, ham, args, opt = initialGuess.setup_system(basis, method, file='test/water_equilim.xyz', 
                                            Exc=Exc, ifCheat=ifCheat, isFrac=isFrac)
     if addNoise is not None:
         args = gen_noise(addNoise, *args)
-    cons = setup_cons(sys, args, N=opt["N"], N2=opt["N2"])
+    cons = initialGuess.setup_cons(sys, args, N=opt["N"], N2=opt["N2"])
     
-    x_star = setup_lg(sys, ham, cons, args, basis, method, isFrac=isFrac)
-    check_E(ham, targetE)
+    lg,x0 = initialGuess.setup_lg(sys, ham, cons, args, basis, method, isFrac=isFrac)
+    x_star,nIter = newton_rewrite.solve(lg, x0)
+    
+    initialGuess.check_E(ham, targetE)
 
 def gen_noise(addNoise, *args):
     result = []
@@ -183,7 +186,7 @@ def frac_target_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False):
         Exc = "x"
     else:
         Exc = None
-    sys, ham, args, opt = setup_system(basis, method, file='test/water_equilim.xyz', 
+    sys, ham, args, opt = initialGuess.setup_system(basis, method, file='test/water_equilim.xyz', 
                                            Exc=Exc, ifCheat=ifCheat, isFrac=isFrac)
     
     sys.wfn.exp_alpha.occupations[4] = 0.5
@@ -196,131 +199,15 @@ def frac_target_h2o_calc(basis, method, targetE, ifCheat=False, isFrac=False):
     
     sys.wfn.clear()
     setup_wfn(sys, ham, dm_a._array, dm_b._array)
-    frac_args, N, N2 = setup_guess(sys, (sys.wfn.exp_alpha._coeffs, sys.wfn.exp_alpha.occupations,
+    frac_args, N, N2 = initialGuess.setup_guess(sys, (sys.wfn.exp_alpha._coeffs, sys.wfn.exp_alpha.occupations,
                                           sys.wfn.exp_alpha.energies, sys.wfn.exp_beta._coeffs, 
                                           sys.wfn.exp_beta.occupations, sys.wfn.exp_beta.energies),
                                   isFrac=isFrac)
     
-    cons = setup_cons(sys, args, N=4.5, N2=4.5)
-    x_star = setup_lg(sys, ham, cons, args, basis, method, isFrac=isFrac)
-    check_E(ham, targetE)
-
-def setup_system(basis, method, file, ifCheat = False, isFrac = False, 
-                     restricted=False, Exc = None, random_rotate=False, 
-                     Ntarget_alpha=None, Ntarget_beta=None):
-#     lf = matrix.IVDualLinalgFactory()
-    lf = matrix.TriangularLinalgFactory()
-#     lf = matrix.DenseLinalgFactory()
-#     lf = matrix.MPDualLinalgFactory()
-    
-    system = System.from_file(context.get_fn(file), obasis=basis, lf=lf)
-#     ####TESTING
-#     try:
-#         system.lf.enable_dual()
-#     except AttributeError:
-#         pass
-#     #TESTING####
-    if Ntarget_alpha is not None and Ntarget_beta is not None:
-        
-        log("overriding alpha population: " + str(Ntarget_alpha))
-        log('overriding beta population: ' + str(Ntarget_beta))
-        
-        N = Ntarget_alpha
-        N2 = Ntarget_beta
-        
-        Ntarget=Ntarget_alpha + Ntarget_beta
-        charge_target = system.numbers.sum() - Ntarget
-    elif Ntarget_alpha is not None or Ntarget_beta is not None:
-        assert False, "must define both alpha and beta target occupations."
-    else:
-        charge_target = 0
-    
-    wfn.setup_mean_field_wfn(system, charge=charge_target, restricted=restricted)
-    if method == "HF":
-        ham = Hamiltonian(system, [HartreeFockExchange()])
-        assert Exc is None
-    elif method == "DFT":
-        assert Exc is not None
-        if not random_rotate:
-            log("Random grid rotation disabled.")
-        grid = BeckeMolGrid(system, random_rotate=random_rotate)
-        libxc_term = LibXCLDA(Exc)
-        ham = Hamiltonian(system, [Hartree(), libxc_term], grid)
-    else:
-        assert False, "not a valid level of theory"
-    dm_a, dm_b, fock_alpha, fock_beta, promol_args = initialGuess.promol_orbitals(system, ham, basis, 
-                                                                                  ifCheat=ifCheat, charge_target=charge_target)
-    args, N, N2 = setup_guess(system, promol_args, dm_a, dm_b, isFrac=isFrac)
-    
-    if Ntarget_alpha is not None and Ntarget_beta is not None:
-        assert np.abs(N-Ntarget_alpha) < 1e-13, (Ntarget_alpha, N)
-        assert np.abs(N2-Ntarget_beta) < 1e-13, (Ntarget_beta, N2)
-
-    return system, ham, args, locals()
-
-def setup_guess(system, promol_args, dm_a=None, dm_b=None, isFrac=False):
-    pro_da, pro_ba, pro_db, pro_bb, mua, mub, N, N2 = initialGuess.promol_guess(system, *promol_args)
-    
-    if dm_a is not None:
-        pro_da = dm_a #CHEATING 
-    if dm_b is not None:
-        pro_db = dm_b #CHEATING
-        
-    if isFrac:
-        pa = initialGuess.promol_frac(pro_da, system)
-        pb = initialGuess.promol_frac(pro_db, system)
-
-        args = [pro_da, pro_ba, pa, pro_db, pro_bb, pb, mua, mub]
-    else:
-        args = [pro_da, pro_ba, pro_db, pro_bb, mua, mub]
-        
-    return args, N, N2
-    
-def setup_lg(sys, ham, cons, args, basis, method, Exc=None, isFrac=False):
-    sys.wfn.clear() #Safety check. Make sure we aren't computing with cheat values.
-    ham.clear()
-    
-    if isFrac:
-        assert len(args) > 6
-    solver = NewtonKrylov()
-
-    lg = Lagrangian(sys, ham, cons, isFrac=isFrac)
-
-    np.savez("ini_args.npz", *[i._array for i in args[:-2]])
-
-    x0 = initialGuess.prep_D(lg, *args)
-
-    msg = "Start " + method +" "
-    if Exc is not None:
-        msg += Exc + " "
-    msg += basis + " "
-    if isFrac:
-        msg += "Fractional "
-    else:
-        msg += "Integer "
-    log(msg)
-        
+    cons = initialGuess.setup_cons(sys, args, N=4.5, N2=4.5)
+    lg,x0 = initialGuess.setup_lg(sys, ham, cons, args, basis, method, isFrac=isFrac)
     x_star = solver.solve(lg, x0)
-    
-    np.savez("fin_args.npz", *[i._array for i in lg.matHelper.vecToMat(x_star)[:-2]])
-    
-    return x_star
-    
-def setup_cons(sys, args, N, N2):
-    L = sys.lf.create_one_body_from(np.eye(sys.wfn.nbasis))
-
-    norm_a = LinearConstraint(sys, N, L, select="alpha")
-    norm_b = LinearConstraint(sys, N2, L, select="beta")
-
-    return [norm_a, norm_b]
-
-def check_E(ham, targetE):
-    log()
-    ham.log_energy()
-    log()
-    log("Actual E:" + str(targetE)) #NWCHEM
-    log("Computed E:" + str(ham.compute()))
-    assert np.abs(ham.compute() - targetE) < 1e-4
+    initialGuess.check_E(ham, targetE)
 
 # test_check_grad()
 # test_linear_stepped_constraints()
@@ -337,8 +224,8 @@ def check_E(ham, targetE):
 
 # default_h2o_calc('sto-3g', "HF", -74.965901, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('3-21G', "HF", -75.583747447860, ifCheat=True, isFrac=True) #NWCHEM
-# default_h2o_calc('sto-3g', "DFT", -74.0689451960385, ifCheat=True, isFrac=True) #HORTON
-default_h2o_calc('6-31++g**', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
+default_h2o_calc('sto-3g', "DFT", -74.0689451960385, ifCheat=True, isFrac=True) #HORTON
+# default_h2o_calc('6-31++g**', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
 # default_h2o_calc('cc-pvqz', "DFT", -67.521923845983, ifCheat=True, isFrac=True) #NWCHEM
 
 # projected_h2o_calc('3-21G', '6-31++G**', "DFT", -67.9894175486548, ifCheat=True, isFrac=True) #Horton

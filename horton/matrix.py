@@ -60,6 +60,7 @@ from horton.log import log
 __all__ = [
     'LinalgFactory', 'LinalgObject', 'Expansion', 'OneBody',
     'DenseLinalgFactory', 'DenseExpansion', 'DenseOneBody', 'DenseTwoBody',
+    'TriangularLinalgFactory',
 ]
 
 
@@ -508,7 +509,7 @@ class DenseExpansion(LinalgObject):
         self._coeffs[:] = other._coeffs
         self._energies[:] = other._energies
         self._occupations[:] = other._occupations
-
+        
     def get_homo_index(self, offset=0):
         '''Return the index of a HOMO orbital.'''
         if offset < 0:
@@ -704,7 +705,7 @@ class DenseOneBody(OneBody):
         self._array = self._dense_array.copy()
     
     def set_elements_from_vec(self, x):
-        assert x.size == self.nbasis**2.
+        assert x.size == self.nbasis**2., (x.size, self.nbasis)
         self._array = x.reshape([self.nbasis,self.nbasis])
         
     def iscale_diag(self, factor):
