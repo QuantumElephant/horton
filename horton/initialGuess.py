@@ -86,7 +86,7 @@ def setup_lg(sys, ham, cons, args, basis, method, Exc=None, isFrac=False):
     if isFrac:
         assert len(args) > 6
 
-    lg = Lagrangian(sys, ham, cons, isFrac=isFrac)
+    lg = Lagrangian(sys, ham, cons, isFrac=isFrac, ifHess=True)
 
     x0 = lg.matHelper.initialize(*args)
 

@@ -137,11 +137,11 @@ class Lagrangian(object):
             
 #            fdan_norm = op.check_grad(self.lagrange_wrap, self.grad_wrap, tmpFwd)
 #            assert fdan_norm < 1e-4, fdan_norm
-#            fd = self.fdiff_hess_grad_grad(tmpFwd)
-#            an = self.grad_wrap(tmpFwd)
-#            fdan = fd - an 
-#            fdan_norm = np.linalg.norm(fdan)
-#            assert fdan_norm < 1e-4, ("Mismatch in finite difference and analytic gradient", fdan_norm, fd, an)
+            fd = self.fdiff_hess_grad_grad(tmpFwd)
+            an = self.grad_wrap(tmpFwd)
+            fdan = fd - an 
+            fdan_norm = np.linalg.norm(fdan)
+            assert fdan_norm < 1e-4, ("Mismatch in finite difference and analytic gradient", fdan_norm, fd, an)
 #            
             an = (anfn(tmpFwd) - anfn(tmpBack))/ (np.float64(2)*h)
 #            an = (self.fdiff_hess_grad_grad(tmpFwd) - self.fdiff_hess_grad_grad(tmpBack))/ (np.float64(2)*h)
@@ -326,7 +326,7 @@ class Lagrangian(object):
         else:
             beta_args = []
         
-        S = self.S
+        S = self.sys.get_overlap()
     
         da = alpha_args[0]
         db = beta_args[0]
@@ -341,11 +341,20 @@ class Lagrangian(object):
             else:
                 [D,B] = i[:self.nfixed_args/2]
             
-            pauli_test = reduce(np.dot,[S,D,S]) - reduce(np.dot,[S,D,S,D,S])
+            sds = self.sys.lf.create_one_body_eye()
+            sdsds = self.sys.lf.create_one_body_eye()
+            idem = B.copy()
+            
+            sds.imuls(S,D,S)
+            sdsds.imuls(S,D,S,D,S)
+            sds.isub(sdsds)
+
             if self.isFrac:
-                pauli_test -= reduce(np.dot, [S,P,S,P,S])
-            pauli_test = np.dot(B,pauli_test)
-            result -= np.trace(pauli_test)
+                spsps = self.sys.lf.create_one_body_eye()
+                spsps.imuls(S,P,S,P,S)
+                sds.isub(spsps)
+            idem.imul(sds)
+            result -= idem.trace()
 
         for con,mul in zip(self.constraints, args[self.nfixed_args:]):
             if con.select == "alpha":
