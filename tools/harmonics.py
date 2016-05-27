@@ -202,7 +202,6 @@ def run_print_solid_harmonics():
     x = Symbol("x")
     y = Symbol("y")
     z = Symbol("z")
-    xyz = (x, y, z)
 
     print
     print '.. math::'
@@ -217,7 +216,6 @@ def run_print_transformations_latex():
     x = Symbol("x")
     y = Symbol("y")
     z = Symbol("z")
-    xyz = (x, y, z)
 
     print
     print '.. math::'
@@ -253,7 +251,6 @@ def run_print_transformations_c():
     x = Symbol("x")
     y = Symbol("y")
     z = Symbol("z")
-    xyz = (x, y, z)
 
     nshell = 10
     sizes = []
@@ -282,7 +279,6 @@ def run_print_transformations_python():
     x = Symbol("x")
     y = Symbol("y")
     z = Symbol("z")
-    xyz = (x, y, z)
 
     nshell = 5
 
@@ -291,7 +287,6 @@ def run_print_transformations_python():
         print 'tf = np.array(['
         lcs = get_poly_conversion(shell)
         npure, ncart = lcs.shape
-        size = 0
         for ipure in xrange(npure):
             vals = []
             for icart in xrange(ncart):

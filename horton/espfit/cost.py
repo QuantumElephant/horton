@@ -63,7 +63,6 @@ class ESPCost(object):
     def from_grid_data(cls, coordinates, ugrid, vref, weights, rcut=20.0, alpha=None, gcut=None):
         if len(coordinates.shape) != 2 or coordinates.shape[1] != 3:
             raise TypeError('The argument coordinates must be an array with three columns.')
-        natom = coordinates.shape[0]
         if alpha is None:
             alpha = 3.0 / rcut
         if gcut is None:

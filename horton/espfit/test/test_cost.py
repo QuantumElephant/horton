@@ -328,7 +328,6 @@ def test_consistent():
     # random system
     natom = 5
     coordinates = np.random.uniform(0, 10, (natom, 3))
-    numbers = np.ones(natom, int)
     charges = np.random.normal(0, 1, natom)
     charges -= charges.mean()
 

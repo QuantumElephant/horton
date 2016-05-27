@@ -77,7 +77,6 @@ def test_solve_poisson_becke_n2():
         # Plot stuff
         import matplotlib.pyplot as pt
         linegrid = LineGrid(mol.coordinates[0], mol.coordinates[1], 500, 1)
-        rho = mol.obasis.compute_grid_density_dm(dm_full, linegrid.points)
         reference = mol.obasis.compute_grid_hartree_dm(dm_full, linegrid.points)
         for lmax in xrange(0, lmaxmax+1):
             result = linegrid.zeros()

@@ -418,7 +418,6 @@ def load_fchk(filename, lf):
             return dm
 
     # First try to load the post-hf density matrices.
-    load_orbitals = True
     for key in 'MP2', 'MP3', 'CC', 'CI', 'SCF':
         dm_full = load_dm('Total %s Density' % key)
         if dm_full is not None:

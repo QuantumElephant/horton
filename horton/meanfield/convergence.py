@@ -91,7 +91,6 @@ def convergence_error_commutator(ham, lf, overlap, *dms):
     ham.reset(*dms)
     focks = [lf.create_two_index() for i in xrange(ham.ndm)]
     ham.compute_fock(*focks)
-    error = 0.0
     work = lf.create_two_index()
     commutator = lf.create_two_index()
     errorsq = 0.0

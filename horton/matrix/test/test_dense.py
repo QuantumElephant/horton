@@ -31,7 +31,7 @@ from horton import *
 #
 
 
-def get_forth_back(n):
+def get_forth_back(n): # FIXME: 5 to n?
     '''Returns matching pair of forth and back permutation.
 
        **Arguments:**
@@ -553,7 +553,6 @@ def test_expansion_copy():
 def test_expansion_itranspose():
     lf = DenseLinalgFactory(5)
     orig = lf.create_expansion()
-    one = lf.create_one_index()
     orig.randomize()
     out = orig.copy()
     out.itranspose()
@@ -758,7 +757,6 @@ def test_expansion_to_dm2():
     dm = mol.exp_alpha.to_dm()
     dm1 = mol.exp_beta.to_dm(dm, 1.0, False)
     assert dm1 is dm
-    olp = mol.obasis.compute_overlap(mol.lf)
     assert dm.distance_inf(mol.get_dm_full()) < 1e-4
     assert dm.is_symmetric()
 
@@ -809,7 +807,6 @@ def test_expansion_two_index_rotate_2orbitals():
     exp1 = exp0.copy()
     exp1.rotate_2orbitals()
     exp1.check_normalization(olp)
-    check = np.identity(4, float)
     dots = np.dot(exp0.coeffs.T, exp1.coeffs)
     check = np.identity(4)
     check[1,1] = 1.0/np.sqrt(2)
@@ -1164,7 +1161,6 @@ def test_two_index_copy_slice():
     assert inp.get_element(4, 1) == out.get_element(7)
     assert inp.get_element(4, 2) == out.get_element(8)
     assert inp.get_element(4, 3) == out.get_element(9)
-    foo = inp.copy_diagonal()
     foo = inp.copy_slice(ind, out)
     assert foo is out
     assert foo.get_element(0) == out.get_element(0)
@@ -1234,7 +1230,7 @@ def test_two_index_contract_to_one():
     orig = lf.create_one_index()
     orig.randomize()
     vec = orig.copy()
-    foo = op.contract_to_one('ab->a', vec, factor, clear=False)
+    op.contract_to_one('ab->a', vec, factor, clear=False)
     assert np.allclose(vec._array, orig._array + factor*op._array.sum(axis=0))
     vec = orig.copy()
     op.contract_to_one('ab->b', vec, factor, clear=False)
@@ -1803,7 +1799,7 @@ def test_three_index_contract_to_two():
     # with ranges
     a = lf.create_three_index(9)
     a.randomize()
-    out = a.contract_to_two('abc->ac', b, factor=0.7, clear=True, end0=3, begin1=2, end1=5, begin2=6, end2=9)
+    a.contract_to_two('abc->ac', b, factor=0.7, clear=True, end0=3, begin1=2, end1=5, begin2=6, end2=9)
     assert np.allclose(b._array, 0.7*np.einsum('abc->ac', a._array[:3, 2:5, 6:9]))
     orig = b.copy()
     out = a.contract_to_two('abc->ac', b, factor=0.7, clear=False, end0=3, begin1=2, end1=5, begin2=6, end2=9)

@@ -42,7 +42,6 @@ def compute_mulliken_charges(obasis, lf, numbers, dm):
 
 
 def compute_hf_energy(mol):
-    olp = mol.obasis.compute_overlap(mol.lf)
     kin = mol.obasis.compute_kinetic(mol.lf)
     na = mol.obasis.compute_nuclear_attraction(mol.coordinates, mol.pseudo_numbers, mol.lf)
     er = mol.obasis.compute_electron_repulsion(mol.lf)

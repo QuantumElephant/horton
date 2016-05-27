@@ -289,7 +289,6 @@ def check_dm_gradient(obasis, dm_full, p0, p1):
     obasis._compute_grid1_dm(dm_full, p0, grid_fn, gradrhos0)
     work0 = grid_fn.get_work(grid_fn.max_nbasis)
 
-    gradrhos1 = np.zeros((1,3), float)
     obasis._compute_grid1_dm(dm_full, p1, grid_fn, gradrhos0)
     work1 = grid_fn.get_work(grid_fn.max_nbasis)
 
@@ -368,7 +367,6 @@ def check_orbitals(mol):
 
     # just the standard usage (alpha)
     aiorbs = (mol.exp_alpha.occupations > 0).nonzero()[0]
-    nalpha = len(aiorbs)
     dm_alpha = mol.exp_alpha.to_dm()
     ad = mol.obasis.compute_grid_density_dm(dm_alpha, points)
     aos = mol.obasis.compute_grid_orbitals_exp(mol.exp_alpha, points, aiorbs)
@@ -378,14 +376,12 @@ def check_orbitals(mol):
     if hasattr(mol, 'exp_beta'):
         # just the standard usage (beta)
         biorbs = (mol.exp_beta.occupations > 0).nonzero()[0]
-        nbeta = len(biorbs)
         dm_beta = mol.exp_beta.to_dm()
         bd = mol.obasis.compute_grid_density_dm(dm_beta, points)
         bos = mol.obasis.compute_grid_orbitals_exp(mol.exp_beta, points, biorbs)
         bd_check = (bos**2).sum(axis=1)
         assert (abs(bd - bd_check)/abs(bd) < 1e-3).all()
     else:
-        bos = aos
         bd_check = ad_check
 
     # compare with full density

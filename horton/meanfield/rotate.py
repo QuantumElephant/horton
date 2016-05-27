@@ -70,7 +70,6 @@ def rotate_coeffs(coeffs, obasis, rmat):
     ibasis0 = 0
     for ishell in xrange(obasis.nshell):
         shell_type = obasis.shell_types[ishell]
-        icart0 = ((shell_type+2)*(shell_type+1)*(shell_type))/6
         shellsize = ((shell_type+2)*(shell_type+1))/2
         for iorb in xrange(coeffs.shape[1]):
             result[ibasis0:ibasis0+shellsize, iorb] = rotate_cartesian_multipole(rmat, coeffs[ibasis0:ibasis0+shellsize, iorb], 'coeffs')

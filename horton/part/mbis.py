@@ -171,7 +171,6 @@ class MBISWPart(IterativeProatomMixin, StockholderWPart):
     def _finalize_propars(self):
         IterativeProatomMixin._finalize_propars(self)
         propars = self.cache.load('propars')
-        core_charges = []
         valence_charges = []
         valence_widths = []
         for iatom in xrange(self.natom):

@@ -268,15 +268,12 @@ def load_molden(filename, lf):
         raise TypeError('The value of lf.default_nbasis does not match nbasis reported in the molden.input file.')
     lf.default_nbasis = obasis.nbasis
     if coeff_beta is None:
-        nalpha = int(np.round(occ_alpha.sum()))/2
         exp_alpha = lf.create_expansion(obasis.nbasis, coeff_alpha.shape[1])
         exp_alpha.coeffs[:] = coeff_alpha
         exp_alpha.energies[:] = ener_alpha
         exp_alpha.occupations[:] = occ_alpha/2
         exp_beta = None
     else:
-        nalpha = int(np.round(occ_alpha.sum()))
-        nbeta = int(np.round(occ_beta.sum()))
         assert coeff_alpha.shape == coeff_beta.shape
         assert ener_alpha.shape == ener_beta.shape
         assert occ_alpha.shape == occ_beta.shape

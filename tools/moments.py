@@ -82,7 +82,6 @@ def write_cart_rotation_code(f):
     lmax = 4
     cartesian_powers = [tuple(row) for row in get_cartesian_powers(lmax)]
     print cartesian_powers
-    ncart = len(cartesian_powers)
 
 
     transforms = []

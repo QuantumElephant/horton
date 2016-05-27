@@ -675,7 +675,7 @@ class RAp1rog(Geminal):
         elif select == 'ps2':
             cached_2dm1 = self.init_two_dm('ppqq')
             self.compute_2dm(cached_2dm1, self.one_dm_ps2, self.geminal, self.geminal, 'ppqq', False)
-            cached_2dm2 = self.init_two_dm('pqpq')
+            cached_2dm2 = self.init_two_dm('pqpq')  # FIXME: cached_2dm2 next?
             self.compute_2dm(cached_2dm1, self.one_dm_ps2, self.geminal, self.geminal, 'pqpq', False)
 
     def compute_1dm(self, dmout, mat1, mat2, factor=1.0, response=True):
@@ -1331,11 +1331,7 @@ class RAp1rog(Geminal):
         #  * lc = sum_ia c_ia l_ia
         #  * ciiaa = sum_ia c_ia <ii|aa>
         #  * diagint = <pp|pp>
-        #
-        lc = lmat.contract_two('ab,ab', gmat)
-        ciiaa = gmat.contract_two('ab,ab', miiaa, 0, self.npairs, self.npairs, self.nbasis)
-        diagint = miiaa.copy_diagonal()
-        #
+
         # cgi = sum_b c_ib <ii|bb>
         # cga = sum_j c_ja <jj|aa>
         # lci = sum_b c_ib l_ib

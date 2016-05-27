@@ -148,7 +148,6 @@ def setup_permutation2(type_assignment):
                HORTON:  [56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36]
                permute: [20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
     '''
-    num_primitives = type_assignment.size
     permutation = setup_permutation1(type_assignment)
     type_assignment = type_assignment[permutation]
     for count, value in enumerate(type_assignment):
@@ -214,7 +213,6 @@ def load_wfn(filename, lf):
     #Making the wavefunction:
     if mo_occ.max() > 1.0:
         #close shell system
-        nelec = int(round(mo_occ.sum()))
         exp_alpha = lf.create_expansion(obasis.nbasis, coefficients.shape[1])
         exp_alpha.coeffs[:] = coefficients
         exp_alpha.energies[:] = mo_energy

@@ -162,7 +162,6 @@ def get_basis_pair_geometry():
     olp = obasis0.compute_overlap(lf)
     kin = obasis0.compute_kinetic(lf)
     na = obasis0.compute_nuclear_attraction(mol.coordinates, mol.pseudo_numbers, lf)
-    er = obasis0.compute_electron_repulsion(lf)
     guess_core_hamiltonian(olp, kin, na, exp0)
 
     # Internal consistency check

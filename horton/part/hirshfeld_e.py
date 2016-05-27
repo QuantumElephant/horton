@@ -259,7 +259,6 @@ class HirshfeldEMixin(object):
         propar_map, propar_names = self.hebasis.get_basis_info()
         self._cache.dump('propar_map', propar_map, tags='o')
         self._cache.dump('propar_names', np.array(propar_names), tags='o')
-        nbasis = self.hebasis.get_nbasis()
         propars = self.hebasis.get_initial_propars()
         self._cache.dump('propars', propars, tags='o')
         return propars

@@ -77,7 +77,7 @@ def check_script_lta(fn_sym, suffix, do_spin=False):
         # if needed, write a random spin cube file
         if do_spin:
             fn_spin = 'spin.cube'
-            molspin = write_random_lta_cube(dn, fn_spin)
+            write_random_lta_cube(dn, fn_spin)
 
         # run the script
         fn_h5 = '%s_cpart.h5' % fn_cube[:-5]

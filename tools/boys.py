@@ -61,7 +61,6 @@ def print_boys_inc(maxm, resolution):
             f_str = to_str(f_numer._mpf_, 16, strip_zeros=False, min_fixed=0, max_fixed=0)
             l.append(f_str)
             ft = boys_function_tail(m, t)
-            ft_numer = ft.evalf(30, maxn=1000, strict=True)
             counter += 1
             error = abs(float(ft) - float(f))
             if counter % 100 == 0 or error == 0:

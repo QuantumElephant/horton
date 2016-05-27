@@ -415,7 +415,6 @@ class IOData(object):
         elif hasattr(self, 'exp_alpha'):
             # First try to get it from the orbitals as some types of Gaussian
             # jobs print print the wrong total density in FCHK file.
-            dm_full = self.lf.create_two_index()
             dm_full = self.exp_alpha.to_dm()
             if hasattr(self, 'exp_beta'):
                 self.exp_beta.to_dm(dm_full, 1.0, clear=False)

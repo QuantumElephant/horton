@@ -168,7 +168,6 @@ def load_mkl(filename, lf):
 
 
     charge = None
-    spinmult = None
     numbers = None
     coordinates = None
     obasis = None

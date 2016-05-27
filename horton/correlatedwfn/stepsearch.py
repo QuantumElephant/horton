@@ -385,7 +385,6 @@ class RStepSearch(StepSearch):
 
         iteri = 1
         ofun_ref = obj.compute_objective_function()
-        De = 0.0
 
         stepn = kappa.copy()
         while True:

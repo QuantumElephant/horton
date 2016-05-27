@@ -147,7 +147,6 @@ def test_atomic_grid_basics1():
     center = np.random.uniform(-1,1,3)
     rtf = ExpRTransform(0.1, 1e1, 4)
     rgrid = RadialGrid(rtf, StubIntegrator1D())
-    nlls = 6
     for random_rotate in True, False:
         ag0 = AtomicGrid(1, 1, center, (rgrid, 6), random_rotate)
         assert abs(ag0.points.mean(axis=0) - center).max() < 1e-10

@@ -415,7 +415,6 @@ class PipekMezey(Localization):
         #
         # Get orbital block to be localized, a OneIndex instance
         #
-        block = self.assign_locblock()
         result = 0.0
         #
         # sum_iA pop(A)_ii^2

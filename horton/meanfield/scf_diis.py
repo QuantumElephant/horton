@@ -142,10 +142,8 @@ class DIISSCFSolver(object):
                     ))
                 if log.do_high:
                     log.blank()
-                fock_interpolated = False
             else:
                 energy = None
-                fock_interpolated = True
 
             # Take a regular SCF step using the current fock matrix. Then
             # construct a new density matrix and fock matrix.

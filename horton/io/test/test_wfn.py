@@ -176,7 +176,6 @@ def check_load_wfn(name):
     dm_full1 = mol1.get_dm_full()
     charges1 = compute_mulliken_charges(obasis1, mol1.lf, numbers1, dm_full1)
     dm_full2 = mol2.get_dm_full()
-    charges2 = compute_mulliken_charges(obasis2, mol2.lf, numbers2, dm_full2)
     return energy1, charges1
 
 

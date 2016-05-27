@@ -35,7 +35,6 @@ def pcholesky4(A, thresh=1e-8):
     for i in A.shape: #assumes square matrix
         assert i == A.shape[0]
     Ls = []
-    d = np.inf
     counter=1
     while True:
         d = np.einsum('iijj->ij',A) - sum([i*i for i in Ls],np.zeros(A.shape[0:2]))

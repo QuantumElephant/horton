@@ -55,7 +55,6 @@ def load_basis_atom_map_nwchem(filename):
 
     f = open(filename)
     basis_atom_map = {}
-    bc = None # The current contraction being loaded
     for line in f:
         # strip of comments and white space
         line = line[:line.find('#')].strip()

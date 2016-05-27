@@ -1206,10 +1206,6 @@ def test_nuclear_attraction_simple_1_1():
 def test_gb4_erilibint_class():
     max_shell_type = 4
     max_nbasis = get_shell_nbasis(max_shell_type)
-    r0 = np.array([2.645617, 0.377945, -0.188973])
-    r1 = np.array([0.000000, 0.000000, 0.188973])
-    r2 = np.array([1.456687, 0.132147, -0.13572])
-    r3 = np.array([0.798754, 0.456465, 0.465736])
 
     gb4i = GB4ElectronRepulsionIntegralLibInt(max_shell_type)
     assert gb4i.max_shell_type == max_shell_type
