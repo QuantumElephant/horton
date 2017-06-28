@@ -21,15 +21,15 @@
 
 #include <cmath>
 #include <stdexcept>
-#include "horton/gbasis/boys.h"
+#include "gbasis/boys.h"
 
 
 // The static arrays in boys_inc.cpp are pre-computed to full precision with
 // sympy and mpmath. (See tools/boys.py.)
 
-#include "horton/gbasis/boys_inc.cpp"
+#include "gbasis/boys_inc.cpp"
 #if BOYS_MAX_M + 6!= BOYS_MAX_DATA
-#error The file boys_inc.cpp is not consistent with the limits in horton/gbasis
+#error The file boys_inc.cpp is not consistent with the limits in gbasis
 #endif
 #define SQRT_PI_D2      8.86226925452758013649e-1  // sqrt(pi)/2
 

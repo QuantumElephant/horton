@@ -20,7 +20,7 @@
 # --
 
 
-cdef extern from "horton/gbasis/ints.h":
+cdef extern from "gbasis/ints.h":
     cdef cppclass GB2Integral:
         long get_nwork()
         long get_max_shell_type()

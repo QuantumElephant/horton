@@ -23,8 +23,8 @@
 #ifndef GBW_H
 #define GBW_H
 
-#include "horton/gbasis/gbasis.h"
-#include "horton/gbasis/ints.h"
+#include "gbasis/gbasis.h"
+#include "gbasis/ints.h"
 
 /**
     @brief

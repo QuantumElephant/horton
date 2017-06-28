@@ -19,7 +19,7 @@
 //--
 
 
-#include "horton/gbasis/common.h"
+#include "gbasis/common.h"
 
 #include <cmath>
 #include <iostream>

@@ -20,6 +20,6 @@
 # --
 
 
-cdef extern from "horton/gbasis/boys.h":
+cdef extern from "gbasis/boys.h":
     double boys_function(long m, double t) except +
     void boys_function_array(long mmax, double t, double *output) except +

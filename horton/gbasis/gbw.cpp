@@ -19,8 +19,8 @@
 //--
 
 
-#include "horton/gbasis/gbw.h"
-#include "horton/gbasis/common.h"
+#include "gbasis/gbw.h"
+#include "gbasis/common.h"
 
 GB4IntegralWrapper::GB4IntegralWrapper(GOBasis* gobasis, GB4Integral* gb4int) :
     gobasis(gobasis), gb4int(gb4int)
