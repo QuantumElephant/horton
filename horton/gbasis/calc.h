@@ -32,12 +32,11 @@
 
 
 class GBCalculator {
- protected:
+ public:
   long nwork, max_shell_type, max_nbasis;
   double *work_pure, *work_cart;  // contiguous work arrays sufficiently large for max_shell_type
   void swap_work();
 
- public:
   /** @brief
         Construct a GBCalculator object.
 

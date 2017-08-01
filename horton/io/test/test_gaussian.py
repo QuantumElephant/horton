@@ -122,6 +122,9 @@ def test_load_fchk_hf_sto3g_num():
     assert (fields['mulliken_charges'] == [0.45000000E+00 , 4.22300000E+00]).all()
     assert (fields['npa_charges']== [3.50000000E+00,  1.32000000E+00]).all()
     assert (fields['esp_charges']==[ 0.77700000E+00,  0.66600000E+00]).all()
+    print obasis.compute_overlap().__repr__()
+    np.save("load_fchk_hf_sto3g_num", obasis.compute_overlap())
+# test_load_fchk_hf_sto3g_num()
 
 
 def test_load_fchk_h_sto3g_num():
@@ -152,6 +155,8 @@ def test_load_fchk_o2_cc_pvtz_pure_num():
     assert coordinates.shape[1] == 3
     assert len(numbers) == 2
     assert energy == -1.495944878699246E+02
+    np.save("load_fchk_o2_cc_pvtz_pure_num", obasis.compute_overlap())
+# test_load_fchk_o2_cc_pvtz_pure_num()
 
 
 def test_load_fchk_o2_cc_pvtz_cart_num():
@@ -166,6 +171,8 @@ def test_load_fchk_o2_cc_pvtz_cart_num():
     assert coordinates.shape[1] == 3
     assert len(numbers) == 2
     assert energy == -1.495953594545721E+02
+    np.save("load_fchk_o2_cc_pvtz_cart_num", obasis.compute_overlap())
+test_load_fchk_o2_cc_pvtz_cart_num()
 
 
 def test_load_fchk_water_sto3g_hf():

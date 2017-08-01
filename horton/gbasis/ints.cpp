@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
+#include <sstream>
 #include "boys.h"
 #include "cartpure.h"
 #include "ints.h"
@@ -109,10 +110,13 @@ void GB2OverlapIntegral::add(double coeff, double alpha0, double alpha1, const d
   double pre, gamma_inv;
   double gpt_center[3];
 
+
   gamma_inv = 1.0 / (alpha0 + alpha1);
   pre = coeff * exp(-alpha0 * alpha1 * gamma_inv * dist_sq(r0, r1));
   compute_gpt_center(alpha0, r0, alpha1, r1, gamma_inv, gpt_center);
   i2p.reset(abs(shell_type0), abs(shell_type1));
+  std::cout << std::endl << "integrals within shells" << shell_type0 << " " << shell_type1 << std::endl;
+//  std::cout << "scales starting: " << scales0[0] << " " << scales1[0] << std::endl;
   do {
     work_cart[i2p.offset] += pre * (
         gb_overlap_int1d(i2p.n0[0], i2p.n1[0], gpt_center[0] - r0[0], gpt_center[0] - r1[0],
@@ -122,6 +126,11 @@ void GB2OverlapIntegral::add(double coeff, double alpha0, double alpha1, const d
             gb_overlap_int1d(i2p.n0[2], i2p.n1[2], gpt_center[2] - r0[2], gpt_center[2] - r1[2],
                              gamma_inv) *
             scales0[i2p.ibasis0] * scales1[i2p.ibasis1]);
+    std::cout << i2p.offset << " |" << work_cart[i2p.offset] << "| " << pre << ", " << gb_overlap_int1d(i2p.n0[0], i2p.n1[0], gpt_center[0] - r0[0], gpt_center[0] - r1[0],
+                         gamma_inv) << ", " << gb_overlap_int1d(i2p.n0[1], i2p.n1[1], gpt_center[1] - r0[1], gpt_center[1] - r1[1],
+                             gamma_inv) << ", " << gb_overlap_int1d(i2p.n0[2], i2p.n1[2], gpt_center[2] - r0[2], gpt_center[2] - r1[2],
+                             gamma_inv) << ", " << scales0[i2p.ibasis0] << ", " << scales1[i2p.ibasis1] << std::endl;
+
   } while (i2p.inc());
 }
 

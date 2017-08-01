@@ -143,6 +143,12 @@ void GBasis::init_scales() {
     }
     oprim += nprims[ishell];
   }
+
+  std::cout << "scales: ";
+  for (long i=0; i < nscales; i++){
+    std::cout << scales[i] << " ";
+  }
+  std::cout << std::endl;
 }
 
 void GBasis::compute_two_index(double *output, GB2Integral *integral) {
@@ -154,6 +160,7 @@ void GBasis::compute_two_index(double *output, GB2Integral *integral) {
     do {
       integral->add(iter.con_coeff, iter.alpha0, iter.alpha1, iter.scales0, iter.scales1);
     } while (iter.inc_prim());
+    std::cout << "--------------New Shell----------" << std::endl;
     integral->cart_to_pure();
     iter.store(integral->get_work(), output);
   } while (iter.inc_shell());

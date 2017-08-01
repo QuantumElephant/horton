@@ -170,6 +170,7 @@ void IterGB2::update_prim() {
       gbasis->con_coeffs[oprim1 + iprim1];
   scales0 = gbasis->get_scales(oprim0 + iprim0);
   scales1 = gbasis->get_scales(oprim1 + iprim1);
+//  std::cout << "scale indices: " << oprim0 + iprim0 << " " << oprim1 + iprim1 << std::endl;
 }
 
 void IterGB2::store(const double *work, double *output) {
